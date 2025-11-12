@@ -1,0 +1,15 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE configs
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+
+# Large archives (use Git LFS if needed)
+*.zip
+

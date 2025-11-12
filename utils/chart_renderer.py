@@ -2,13 +2,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from typing import Optional, Tuple
 
-# Use non-interactive backend
-matplotlib.use('Qt5Agg')
+# Use Qt-compatible backend for PyQt6
+matplotlib.use('QtAgg')
 
 class MatplotlibCanvas(QWidget):
     """Matplotlib canvas widget for PyQt6"""
