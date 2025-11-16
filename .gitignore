@@ -1,15 +1,56 @@
-# Python cache
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# IDE configs
-.idea/
+# PyQt
+*.qmlc
+*.jsc
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# OS files
+# OS
 .DS_Store
+Thumbs.db
 
-# Large archives (use Git LFS if needed)
-*.zip
+# Outputs
+outputs/models/*.pkl
+outputs/charts/*.png
+outputs/evaluation/*.npz
+outputs/evaluation/*.csv
 
+# Database
+*.db
+*.sqlite
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
