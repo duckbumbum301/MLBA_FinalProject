@@ -13,6 +13,8 @@ sys.path.insert(0, str(project_root))
 from ui.MainWindow import Ui_MainWindow
 from ui.PredictionTabWidget import PredictionTabWidget
 from ui.DashboardTabWidget import DashboardTabWidget
+from ui.AIAssistantWidget import AIAssistantWidget
+from ui.ModelManagementWidget import ModelManagementWidget
 from models.user import User
 from database.connector import DatabaseConnector
 from config.database_config import DatabaseConfig
@@ -67,48 +69,49 @@ class MainWindowEx(QMainWindow):
         # Clear default tabs
         self.ui.tabWidget.clear()
         
-        # Tab 1: Dự Báo Rủi Ro
-        self.prediction_widget = PredictionTabWidget(self.query_service)
+        # Tab 1: Dự Báo Rủi Ro (All users)
+        self.prediction_widget = PredictionTabWidget(self.user, self.query_service)
         self.ui.tabWidget.addTab(self.prediction_widget, "📊 Dự Báo Rủi Ro")
         
-        # Tab 2: Dashboard
+        # Tab 2: Dashboard (All users - limited for User role)
         self.dashboard_widget = DashboardTabWidget()
         self.ui.tabWidget.addTab(self.dashboard_widget, "📈 Dashboard")
+        
+        # Tab 3: AI Trợ Lý (All users)
+        try:
+            self.ai_assistant_widget = AIAssistantWidget(self.user, self.db_connector)
+            self.ui.tabWidget.addTab(self.ai_assistant_widget, "🤖 AI Trợ Lý")
+        except Exception as e:
+            print(f"⚠ Could not load AI Assistant: {e}")
+        
+        # Tab 4 & 5: Admin only
+        if self.user.is_admin():
+            # Tab 4: Quản Lý Models (Admin only)
+            try:
+                self.model_management_widget = ModelManagementWidget(self.user, self.db_connector)
+                self.ui.tabWidget.addTab(self.model_management_widget, "🎯 Quản Lý ML")
+            except Exception as e:
+                print(f"⚠ Could not load Model Management: {e}")
+            
+            # Tab 5: Quản Lý Hệ Thống (Admin only)
+            # Placeholder - will implement later
+            # self.system_widget = SystemManagementWidget(self.user, self.db_connector)
+            # self.ui.tabWidget.addTab(self.system_widget, "⚙️ Hệ Thống")
     
     def setup_role_permissions(self):
         """
         Thiết lập phân quyền theo role
-        
-        Rules:
-        - Admin: Xem tất cả tabs
-        - Technical: Xem Prediction + Dashboard
-        - Secretary: Chỉ xem Prediction
+        - User: Thấy 3 tabs (Dự Báo, Dashboard, AI Trợ Lý)
+        - Admin: Thấy 5 tabs (thêm Quản Lý ML, Hệ Thống)
         """
-        if self.user.role == 'Admin':
-            # Admin có quyền tất cả
+        if self.user.is_admin():
+            # Admin: Full access
+            self.setWindowTitle(f"Credit Risk System - Admin: {self.user.username}")
             print(f"✓ Admin access: All tabs enabled")
-        
-        elif self.user.role == 'Technical':
-            # Technical có quyền Prediction + Dashboard
-            print(f"✓ Technical access: Prediction + Dashboard enabled")
-        
-        elif self.user.role == 'Secretary':
-            # Secretary chỉ có quyền Prediction
-            # Ẩn tab Dashboard
-            dashboard_index = None
-            for i in range(self.ui.tabWidget.count()):
-                if 'Dashboard' in self.ui.tabWidget.tabText(i):
-                    dashboard_index = i
-                    break
-            
-            if dashboard_index is not None:
-                self.ui.tabWidget.removeTab(dashboard_index)
-            
-            print(f"✓ Secretary access: Only Prediction tab enabled")
-        
         else:
-            # Unknown role - restrict to Prediction only
-            print(f"⚠ Unknown role '{self.user.role}': Default to Prediction only")
+            # User: Limited access
+            self.setWindowTitle(f"Credit Risk System - User: {self.user.username}")
+            print(f"✓ User access: 3 tabs enabled")
     
     def handle_logout(self):
         """Xử lý sự kiện logout"""
@@ -129,3 +132,4 @@ class MainWindowEx(QMainWindow):
         if self.db_connector:
             self.db_connector.close()
         event.accept()
+

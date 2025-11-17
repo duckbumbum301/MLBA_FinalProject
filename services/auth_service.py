@@ -69,19 +69,35 @@ class AuthService:
         Returns:
             Instance User nếu thành công, None nếu thất bại
         """
-        query = "SELECT id, username, password_hash, role, created_at FROM user WHERE username = %s"
+        query = """
+            SELECT id, username, password_hash, role, full_name, email, 
+                   created_at, last_login, is_active 
+            FROM user 
+            WHERE username = %s
+        """
         result = self.db.fetch_one(query, (username,))
         
         if not result:
             print(f"✗ Không tìm thấy user: {username}")
             return None
         
-        user_id, username, password_hash, role, created_at = result
+        user_id, username, password_hash, role, full_name, email, created_at, last_login, is_active = result
+        
+        # Check if account is active
+        if not is_active:
+            print(f"✗ Tài khoản đã bị vô hiệu hóa: {username}")
+            return None
         
         # Verify password
         if not self.verify_password(password, password_hash):
             print(f"✗ Sai mật khẩu cho user: {username}")
             return None
+        
+        # Update last login
+        self.db.execute_query(
+            "UPDATE user SET last_login = NOW() WHERE id = %s",
+            (user_id,)
+        )
         
         # Tạo User object
         user = User(
@@ -89,7 +105,11 @@ class AuthService:
             username=username,
             password_hash=password_hash,
             role=role,
-            created_at=created_at
+            full_name=full_name,
+            email=email,
+            created_at=created_at,
+            last_login=last_login,
+            is_active=is_active
         )
         
         print(f"✓ Đăng nhập thành công: {user}")

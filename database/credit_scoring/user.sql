@@ -1,24 +1,30 @@
 -- ================================================
--- Bảng USER - Quản lý tài khoản đăng nhập
+-- Bảng USER - Quản lý tài khoản đăng nhập (2 ROLES)
 -- ================================================
 
 CREATE TABLE IF NOT EXISTS `user` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `username` VARCHAR(50) NOT NULL UNIQUE,
     `password_hash` VARCHAR(255) NOT NULL,
-    `role` ENUM('Admin', 'Technical', 'Secretary') NOT NULL DEFAULT 'Secretary',
+    `role` ENUM('User', 'Admin') NOT NULL DEFAULT 'User',
+    `full_name` VARCHAR(100),
+    `email` VARCHAR(100),
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_username (`username`)
+    `last_login` DATETIME,
+    `is_active` BOOLEAN DEFAULT TRUE,
+    INDEX idx_username (`username`),
+    INDEX idx_role (`role`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insert 3 demo users (password đã hash bằng bcrypt)
+-- Insert demo users
 -- Password cho tất cả: "123"
--- Hash: $2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY.4HYoVYYlDqBu
+-- Hash (verified): $2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm
 
-INSERT INTO `user` (`username`, `password_hash`, `role`) VALUES
-    ('babyshark', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY.4HYoVYYlDqBu', 'Admin'),
-    ('fathershark', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY.4HYoVYYlDqBu', 'Technical'),
-    ('momshark', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY.4HYoVYYlDqBu', 'Secretary')
+INSERT INTO `user` (`username`, `password_hash`, `role`, `full_name`) VALUES
+    ('babyshark', '$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm', 'User', 'Nhân viên A'),
+    ('fathershark', '$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm', 'Admin', 'Quản trị viên'),
+    ('momshark', '$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm', 'User', 'Nhân viên B')
 ON DUPLICATE KEY UPDATE 
     `password_hash` = VALUES(`password_hash`),
-    `role` = VALUES(`role`);
+    `role` = VALUES(`role`),
+    `full_name` = VALUES(`full_name`);

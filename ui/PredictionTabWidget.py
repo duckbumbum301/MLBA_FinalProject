@@ -16,6 +16,7 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 from models.customer import Customer
+from models.user import User
 from services.ml_service import MLService
 from services.query_service import QueryService
 
@@ -26,8 +27,9 @@ class PredictionTabWidget(QWidget):
     Chứa 41 trường input (12 tháng lịch sử) và hiển thị kết quả dự báo
     """
     
-    def __init__(self, query_service: QueryService):
+    def __init__(self, user: User, query_service: QueryService):
         super().__init__()
+        self.user = user
         self.query_service = query_service
         
         # Init ML Service
