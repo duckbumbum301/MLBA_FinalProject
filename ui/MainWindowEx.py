@@ -15,6 +15,7 @@ from ui.PredictionTabWidget import PredictionTabWidget
 from ui.DashboardTabWidget import DashboardTabWidget
 from ui.AIAssistantWidget import AIAssistantWidget
 from ui.ModelManagementWidget import ModelManagementWidget
+from ui.SystemManagementWidget import SystemManagementWidget
 from models.user import User
 from database.connector import DatabaseConnector
 from config.database_config import DatabaseConfig
@@ -94,9 +95,11 @@ class MainWindowEx(QMainWindow):
                 print(f"⚠ Could not load Model Management: {e}")
             
             # Tab 5: Quản Lý Hệ Thống (Admin only)
-            # Placeholder - will implement later
-            # self.system_widget = SystemManagementWidget(self.user, self.db_connector)
-            # self.ui.tabWidget.addTab(self.system_widget, "⚙️ Hệ Thống")
+            try:
+                self.system_widget = SystemManagementWidget(self.user, self.db_connector)
+                self.ui.tabWidget.addTab(self.system_widget, "⚙️ Hệ Thống")
+            except Exception as e:
+                print(f"⚠ Could not load System Management: {e}")
     
     def setup_role_permissions(self):
         """
@@ -105,11 +108,11 @@ class MainWindowEx(QMainWindow):
         - Admin: Thấy 5 tabs (thêm Quản Lý ML, Hệ Thống)
         """
         if self.user.is_admin():
-            # Admin: Full access
+            # Admin: Full access to all 5 tabs
             self.setWindowTitle(f"Credit Risk System - Admin: {self.user.username}")
-            print(f"✓ Admin access: All tabs enabled")
+            print(f"✓ Admin access: 5 tabs enabled")
         else:
-            # User: Limited access
+            # User: Limited access to 3 tabs only
             self.setWindowTitle(f"Credit Risk System - User: {self.user.username}")
             print(f"✓ User access: 3 tabs enabled")
     
