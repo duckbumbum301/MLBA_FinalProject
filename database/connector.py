@@ -38,6 +38,25 @@ class DatabaseConnector:
             print(f"✓ Đã kết nối tới database: {self.config.database}")
             return True
         except Error as e:
+            # Unknown database -> tạo database rồi kết nối lại
+            if getattr(e, 'errno', None) == 1049:
+                try:
+                    base_cfg = self.config.to_dict().copy()
+                    base_cfg.pop('database', None)
+                    temp_conn = mysql.connector.connect(**base_cfg)
+                    temp_cursor = temp_conn.cursor()
+                    temp_cursor.execute(
+                        f"CREATE DATABASE IF NOT EXISTS `{self.config.database}` "
+                        f"DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                    )
+                    temp_conn.close()
+                    self.connection = mysql.connector.connect(**self.config.to_dict())
+                    self.cursor = self.connection.cursor()
+                    print(f"✓ Đã tạo và kết nối database: {self.config.database}")
+                    return True
+                except Error as create_err:
+                    print(f"✗ Không thể tạo database: {create_err}")
+                    return False
             print(f"✗ Lỗi kết nối database: {e}")
             return False
     
