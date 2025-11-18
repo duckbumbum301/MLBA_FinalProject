@@ -153,6 +153,49 @@ class QueryService:
             })
         
         return predictions
+
+    def get_customers_by_probability_range(self, min_prob: float, max_prob: Optional[float] = None, limit: int = 50) -> List[Dict]:
+        query = """
+            SELECT 
+                p.id as prediction_id,
+                p.customer_id,
+                p.probability,
+                c.customer_id_card,
+                c.customer_name
+            FROM predictions_log p
+            LEFT JOIN customers c ON p.customer_id = c.id
+            WHERE p.probability >= %s {upper}
+            ORDER BY p.created_at DESC
+            LIMIT %s
+        """
+        upper_clause = "AND p.probability < %s" if max_prob is not None else ""
+        query = query.format(upper=upper_clause)
+        params = (min_prob, max_prob, limit) if max_prob is not None else (min_prob, limit)
+        rows = self.db.fetch_all(query, params)
+        results = []
+        for r in rows:
+            results.append({
+                'prediction_id': r[0],
+                'customer_id': r[1],
+                'probability': float(r[2]),
+                'customer_id_card': r[3],
+                'customer_name': r[4],
+            })
+        return results
+
+    def get_customers_by_tier(self, tier: str, limit: int = 50) -> List[Dict]:
+        tier = tier.strip().lower()
+        if tier in ('trung bình', 'trung binh', 'medium'):
+            return self.get_customers_by_probability_range(0.4, 0.6, limit)
+        if tier in ('cao', 'high'):
+            return self.get_customers_by_probability_range(0.6, 0.8, limit)
+        if tier in ('rất cao', 'rat cao', 'very high'):
+            return self.get_customers_by_probability_range(0.8, None, limit)
+        if tier in ('rất thấp', 'rat thap', 'very low'):
+            return self.get_customers_by_probability_range(0.0, 0.2, limit)
+        if tier in ('thấp', 'thap', 'low'):
+            return self.get_customers_by_probability_range(0.2, 0.4, limit)
+        return []
     
     def search_customers(self, keyword: str, limit: int = 50) -> List[Dict]:
         like = f"%{keyword}%"

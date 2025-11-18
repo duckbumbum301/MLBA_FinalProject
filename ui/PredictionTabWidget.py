@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout,
     QLineEdit, QComboBox, QDoubleSpinBox, QPushButton, QLabel,
     QCheckBox, QMessageBox, QScrollArea, QRadioButton, QButtonGroup,
-    QDialog, QTableWidget, QTableWidgetItem, QHeaderView
+    QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
@@ -36,6 +36,7 @@ class PredictionTabWidget(QWidget):
         self.user = user
         self.query_service = query_service
         self.current_currency = 'VND'  # Mặc định VND
+        self._original_customer = None
         
         # Init ML Service
         try:
@@ -110,13 +111,17 @@ class PredictionTabWidget(QWidget):
         group_personal = self.create_personal_info_group()
         scroll_layout.addWidget(group_personal)
         
-        # === GROUP 2: Lịch sử thanh toán ===
+        # === GROUP 2+3: Đặt hai card nằm cạnh nhau ===
         group_payment_history = self.create_payment_history_group()
-        scroll_layout.addWidget(group_payment_history)
-        
-        # === GROUP 3: Chi tiết sao kê ===
         group_billing = self.create_billing_details_group()
-        scroll_layout.addWidget(group_billing)
+
+        group_payment_history.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        group_billing.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        row_layout = QHBoxLayout()
+        row_layout.addWidget(group_payment_history)
+        row_layout.addWidget(group_billing)
+        scroll_layout.addLayout(row_layout)
         
         scroll.setWidget(scroll_content)
         main_layout.addWidget(scroll)
@@ -126,40 +131,28 @@ class PredictionTabWidget(QWidget):
         
         # CRUD Buttons
         self.btnSaveCustomer = QPushButton("💾 Lưu Khách Hàng")
-        self.btnSaveCustomer.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 10px 20px;
-                font-size: 14px;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
+        self.btnSaveCustomer.setObjectName('Primary')
         self.btnSaveCustomer.clicked.connect(self.save_customer)
         self.btnSaveCustomer.setToolTip("Lưu thông tin khách hàng vào database (Create/Update)")
         button_layout.addWidget(self.btnSaveCustomer)
         
         self.btnDeleteCustomer = QPushButton("🗑️ Xóa Khách Hàng")
-        self.btnDeleteCustomer.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                padding: 10px 20px;
-                font-size: 14px;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
+        self.btnDeleteCustomer.setObjectName('Danger')
         self.btnDeleteCustomer.clicked.connect(self.delete_customer)
         self.btnDeleteCustomer.setToolTip("Xóa khách hàng khỏi database theo CMND")
         button_layout.addWidget(self.btnDeleteCustomer)
+
+        self.btnEditToggle = QPushButton("✏️ Chỉnh sửa")
+        self.btnEditToggle.setObjectName('Secondary')
+        self.btnEditToggle.setToolTip("Chỉnh sửa lịch sử thanh toán và chi tiết sao kê")
+        self.btnEditToggle.clicked.connect(self.enable_edit_mode)
+        button_layout.addWidget(self.btnEditToggle)
+        
+        self.btnRestore = QPushButton("↩️ Khôi phục")
+        self.btnRestore.setObjectName('Secondary')
+        self.btnRestore.setToolTip("Khôi phục dữ liệu trước khi chỉnh sửa và khóa lại")
+        self.btnRestore.clicked.connect(self.restore_original_data)
+        button_layout.addWidget(self.btnRestore)
         
         self.chkSaveHistory = QCheckBox("Lưu vào lịch sử dự báo")
         self.chkSaveHistory.setChecked(True)
@@ -168,42 +161,19 @@ class PredictionTabWidget(QWidget):
         button_layout.addStretch()
         
         self.btnClear = QPushButton("Xóa Form")
+        self.btnClear.setObjectName('Secondary')
         self.btnClear.clicked.connect(self.clear_form)
         button_layout.addWidget(self.btnClear)
         
         self.btnPredict = QPushButton("Dự Báo Rủi Ro")
-        self.btnPredict.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 10px 20px;
-                font-size: 14px;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-            }
-        """)
+        self.btnPredict.setObjectName('Primary')
         self.btnPredict.clicked.connect(self.on_predict_clicked)
         button_layout.addWidget(self.btnPredict)
         
         # === ADMIN: Compare All Models Button ===
         if self.user.is_admin():
             self.btnCompareAll = QPushButton("📊 So Sánh 8 Models")
-            self.btnCompareAll.setStyleSheet("""
-                QPushButton {
-                    background-color: #9b59b6;
-                    color: white;
-                    padding: 10px 20px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    border-radius: 5px;
-                }
-                QPushButton:hover {
-                    background-color: #8e44ad;
-                }
-            """)
+            self.btnCompareAll.setObjectName('Secondary')
             self.btnCompareAll.clicked.connect(self.compare_all_models)
             button_layout.addWidget(self.btnCompareAll)
         
@@ -296,7 +266,10 @@ class PredictionTabWidget(QWidget):
     def create_payment_history_group(self) -> QGroupBox:
         """Tạo GroupBox lịch sử thanh toán với option 12/6 tháng"""
         group = QGroupBox("💳 LỊCH SỬ THANH TOÁN")
-        group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        group.setStyleSheet(
+            "QGroupBox { font-weight: bold; border: 1px solid #dfe6ee; border-radius: 10px; }"
+            "QGroupBox::title { color: #ffffff; background-color: #2663ea; padding: 4px 8px; border-radius: 6px; }"
+        )
         main_layout = QVBoxLayout()
         
         # === Header: RadioButton + Random Button ===
@@ -318,18 +291,7 @@ class PredictionTabWidget(QWidget):
         
         # Random Button
         self.btnRandomPayments = QPushButton("🎲 Random ngẫu nhiên")
-        self.btnRandomPayments.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 5px 15px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
+        self.btnRandomPayments.setObjectName('Primary')
         self.btnRandomPayments.clicked.connect(self.random_payment_history)
         self.btnRandomPayments.setToolTip("Tự động điền giá trị ngẫu nhiên hợp lý cho lịch sử thanh toán")
         header_layout.addWidget(self.btnRandomPayments)
@@ -441,24 +403,17 @@ class PredictionTabWidget(QWidget):
         """Tạo GroupBox chi tiết sao kê với random button"""
         group = QGroupBox("📊 CHI TIẾT SAO KÊ")
         main_layout = QVBoxLayout()
+        group.setStyleSheet(
+            "QGroupBox { font-weight: bold; border: 1px solid #dfe6ee; border-radius: 10px; }"
+            "QGroupBox::title { color: #ffffff; background-color: #2663ea; padding: 4px 8px; border-radius: 6px; }"
+        )
         
         # === Header: Random Button ===
         header_layout = QHBoxLayout()
         header_layout.addStretch()
         
         self.btnRandomBilling = QPushButton("🎲 Random ngẫu nhiên")
-        self.btnRandomBilling.setStyleSheet("""
-            QPushButton {
-                background-color: #e67e22;
-                color: white;
-                padding: 5px 15px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #d35400;
-            }
-        """)
+        self.btnRandomBilling.setObjectName('Primary')
         self.btnRandomBilling.clicked.connect(self.random_billing_details)
         self.btnRandomBilling.setToolTip("Tự động điền giá trị ngẫu nhiên hợp lý cho số dư và thanh toán")
         header_layout.addWidget(self.btnRandomBilling)
@@ -522,14 +477,14 @@ class PredictionTabWidget(QWidget):
         
         layout = QVBoxLayout()
         
-        # Label hiển thị nhãn rủi ro
-        self.lblRiskLabel = QLabel("Nguy cơ thấp")
+        # Label hiển thị mức rủi ro (tier)
+        self.lblRiskLabel = QLabel("Trung bình")
         self.lblRiskLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font_risk = QFont()
         font_risk.setPointSize(20)
         font_risk.setBold(True)
         self.lblRiskLabel.setFont(font_risk)
-        self.lblRiskLabel.setStyleSheet("color: green; padding: 20px;")
+        self.lblRiskLabel.setStyleSheet("color: #DAA520; padding: 20px;")
         layout.addWidget(self.lblRiskLabel)
         
         # Label hiển thị xác suất
@@ -669,17 +624,15 @@ class PredictionTabWidget(QWidget):
         """Hiển thị kết quả dự báo"""
         self.result_group.setVisible(True)
         
-        # Update risk label
-        risk_label = result.get_risk_label()
-        self.lblRiskLabel.setText(risk_label)
-        
-        # Update color based on risk
-        if result.is_high_risk():
+        tier_label = result.get_risk_tier()
+        self.lblRiskLabel.setText(tier_label)
+        if tier_label in ("Rất thấp", "Thấp"):
             self.lblRiskLabel.setStyleSheet("color: red; padding: 20px; background-color: #ffe6e6; border-radius: 10px;")
+        elif tier_label == "Trung bình":
+            self.lblRiskLabel.setStyleSheet("color: #DAA520; padding: 20px; background-color: #fff5cc; border-radius: 10px;")
         else:
             self.lblRiskLabel.setStyleSheet("color: green; padding: 20px; background-color: #e6ffe6; border-radius: 10px;")
-        
-        # Update probability
+
         self.lblProbability.setText(f"Xác suất vỡ nợ: {result.get_probability_percentage()}")
     
     def save_prediction_to_db(self, input_dict, result):
@@ -736,6 +689,51 @@ class PredictionTabWidget(QWidget):
             spn.setValue(0)
         
         self.result_group.setVisible(False)
+        self.set_edit_mode(True)
+        self._original_customer = None
+
+    def set_edit_mode(self, enabled: bool):
+        # Payment history combos
+        for cmb in self.pay_combos.values():
+            cmb.setEnabled(enabled)
+        # Billing amounts and payment amounts
+        for spn in self.bill_amts:
+            spn.setEnabled(enabled)
+        for spn in self.pay_amts:
+            spn.setEnabled(enabled)
+        # Random buttons
+        if hasattr(self, 'btnRandomPayments'):
+            self.btnRandomPayments.setEnabled(enabled)
+        if hasattr(self, 'btnRandomBilling'):
+            self.btnRandomBilling.setEnabled(enabled)
+        # Save button
+        if hasattr(self, 'btnSaveCustomer'):
+            self.btnSaveCustomer.setEnabled(enabled)
+        # Personal info fields
+        if hasattr(self, 'spnLimitBal'):
+            self.spnLimitBal.setEnabled(enabled)
+        if hasattr(self, 'cmbSex'):
+            self.cmbSex.setEnabled(enabled)
+        if hasattr(self, 'cmbEducation'):
+            self.cmbEducation.setEnabled(enabled)
+        if hasattr(self, 'cmbMarriage'):
+            self.cmbMarriage.setEnabled(enabled)
+        if hasattr(self, 'spnAge'):
+            self.spnAge.setEnabled(enabled)
+
+    def enable_edit_mode(self):
+        reply = QMessageBox.question(
+            self, 'Xác nhận chỉnh sửa',
+            'Bạn có chắc chắn muốn chỉnh sửa các thông tin lịch sử thanh toán, chi tiết sao kê và thông tin cá nhân?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.set_edit_mode(True)
+
+    def restore_original_data(self):
+        if self._original_customer:
+            self.load_customer_data(self._original_customer)
+            self.set_edit_mode(False)
     
     def compare_all_models(self):
         """So sánh 8 models cùng lúc (Admin only)"""
@@ -897,6 +895,9 @@ class PredictionTabWidget(QWidget):
             
             # Điền thông tin vào form
             self.load_customer_data(customer)
+            # Khóa chỉnh sửa sau khi tải dữ liệu từ MySQL
+            self.set_edit_mode(False)
+            self._original_customer = customer
             
             QMessageBox.information(self, "Thành công", 
                                     f"Đã tải thông tin khách hàng: {customer.customer_name}")

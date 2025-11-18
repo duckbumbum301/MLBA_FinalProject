@@ -2,9 +2,9 @@
 MainWindow - Credit Risk System main interface
 Features: Prediction, Dashboard, Reports, AI Assistant, Customer Management
 """
-from PyQt6.QtWidgets import QMainWindow, QTabWidget, QMenuBar, QMessageBox
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import QMainWindow, QTabWidget, QMenuBar, QMessageBox, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel, QPushButton, QLineEdit
+from PyQt6.QtCore import pyqtSignal, QSize
+from PyQt6.QtGui import QAction, QPixmap, QIcon
 import sys
 from pathlib import Path
 base_dir = Path(__file__).resolve().parent
@@ -44,9 +44,8 @@ class MainWindow(QMainWindow):
         self.user = user
         self.setWindowTitle(f"Credit Risk System - {self.user.username} ({self.user.role})")
         self.tab = QTabWidget()
-        self.setCentralWidget(self.tab)
+        self.build_header_layout()
         self.setStyleSheet(STYLE_QSS)
-        self.setup_menu()
         self.setup_tabs()
     
     def setup_menu(self):
@@ -102,3 +101,67 @@ class MainWindow(QMainWindow):
             self.sys_tab = SystemManagementTab()
             self.tab.addTab(self.ml_tab, 'Quản Lý ML')
             self.tab.addTab(self.sys_tab, 'Hệ Thống')
+
+        # Wire navbar buttons to tabs when available
+        if hasattr(self, 'btnNavPredict'):
+            self.btnNavPredict.clicked.connect(lambda: self.tab.setCurrentWidget(self.prediction_tab))
+        if hasattr(self, 'btnNavDashboard'):
+            self.btnNavDashboard.clicked.connect(lambda: self.tab.setCurrentWidget(self.dashboard_tab))
+        if hasattr(self, 'btnNavReport'):
+            self.btnNavReport.clicked.connect(lambda: self.tab.setCurrentWidget(self.report_tab))
+        if hasattr(self, 'btnNavCustomers'):
+            self.btnNavCustomers.clicked.connect(lambda: self.tab.setCurrentWidget(self.customer_tab))
+        if hasattr(self, 'btnNavAI'):
+            self.btnNavAI.clicked.connect(lambda: self.tab.setCurrentWidget(self.ai_tab))
+
+    def build_header_layout(self):
+        root = QWidget()
+        container = QVBoxLayout(root)
+        container.setContentsMargins(0,0,0,0)
+        container.setSpacing(0)
+
+        # Top blue bar
+        topbar = QFrame(); topbar.setObjectName('TopBar')
+        tb = QHBoxLayout(topbar); tb.setContentsMargins(16,10,16,10)
+        title = QLabel('Credit Risk Management System'); title.setObjectName('Heading2')
+        tb.addWidget(title)
+        tb.addStretch()
+        user_label = QLabel(f"{self.user.username} ({self.user.role})")
+        tb.addWidget(user_label)
+        btnLogoutTop = QPushButton('Log out'); btnLogoutTop.setObjectName('Secondary')
+        btnLogoutTop.clicked.connect(self.handle_logout)
+        tb.addWidget(btnLogoutTop)
+
+        # Secondary nav bar
+        navbar = QFrame(); navbar.setObjectName('NavBar')
+        nb = QHBoxLayout(navbar); nb.setContentsMargins(16,8,16,8)
+        logoSmall = QLabel('')
+        logo_path = base_dir / 'images' / 'logo.png'
+        if logo_path.exists():
+            pm2 = QPixmap(str(logo_path))
+            logoSmall.setPixmap(pm2.scaledToHeight(22))
+        logoSmall.setFixedSize(32, 22)
+        nb.addWidget(logoSmall)
+        brand = QLabel('NYTDT'); brand.setObjectName('Heading3')
+        nb.addWidget(brand)
+        self.btnNavPredict = QPushButton('Prediction'); self.btnNavPredict.setObjectName('NavItem')
+        self.btnNavDashboard = QPushButton('Dashboard'); self.btnNavDashboard.setObjectName('NavItem')
+        self.btnNavReport = QPushButton('Reports'); self.btnNavReport.setObjectName('NavItem')
+        self.btnNavCustomers = QPushButton('Customers'); self.btnNavCustomers.setObjectName('NavItem')
+        for b in [self.btnNavPredict, self.btnNavDashboard, self.btnNavReport, self.btnNavCustomers]:
+            nb.addWidget(b)
+        nb.addStretch()
+        self.btnNavAI = QPushButton(''); self.btnNavAI.setObjectName('AiButton')
+        ai_path = base_dir / 'images' / 'chatbotAI.png'
+        if ai_path.exists():
+            self.btnNavAI.setIcon(QIcon(str(ai_path)))
+            self.btnNavAI.setIconSize(QSize(24,24))
+        self.btnNavAI.setFixedSize(36,36)
+        nb.addWidget(self.btnNavAI)
+        search = QLineEdit(); search.setObjectName('SearchBox'); search.setPlaceholderText('Searching...')
+        nb.addWidget(search)
+
+        container.addWidget(topbar)
+        container.addWidget(navbar)
+        container.addWidget(self.tab)
+        self.setCentralWidget(root)

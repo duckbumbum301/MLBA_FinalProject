@@ -47,6 +47,9 @@ class MLService:
         
         # Load model
         self.predictor.load_model()
+        
+        # Load optimal threshold from evaluation data if available
+        self.threshold = self._load_optimal_threshold()
     
     def predict_default_risk(self, input_dict: Dict) -> PredictionResult:
         """
@@ -63,7 +66,8 @@ class MLService:
             processed_input = preprocess_input(input_dict)
             
             # Predict
-            label, probability = self.predictor.predict(processed_input)
+            _, probability = self.predictor.predict(processed_input)
+            label = 1 if probability >= 0.6 else 0
             
             # Tạo PredictionResult
             result = PredictionResult(
@@ -96,7 +100,8 @@ class MLService:
         return {
             'model_name': self.model_name,
             'model_path': self.model_path,
-            'is_loaded': self.predictor.model is not None
+            'is_loaded': self.predictor.model is not None,
+            'threshold': self.threshold
         }
     
     def reload_model(self, new_model_path: Optional[str] = None):
@@ -112,3 +117,23 @@ class MLService:
         self.predictor = ModelPredictor(self.model_path)
         self.predictor.load_model()
         print(f"✓ Đã reload model: {self.model_path}")
+
+    def _load_optimal_threshold(self) -> float:
+        """
+        Load optimal threshold từ outputs/evaluation/evaluation_data.npz
+        Nếu không có, trả về 0.5
+        """
+        try:
+            eval_path = project_root / 'outputs' / 'evaluation' / 'evaluation_data.npz'
+            if not eval_path.exists():
+                return 0.5
+            import numpy as np
+            data = np.load(eval_path, allow_pickle=True)
+            best = data.get('best_thresholds', None)
+            if best is None:
+                return 0.5
+            # best_thresholds được lưu là dict (object)
+            thr_dict = best.item() if hasattr(best, 'item') else best
+            return float(thr_dict.get(self.model_name, 0.5))
+        except Exception:
+            return 0.5

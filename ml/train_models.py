@@ -39,7 +39,7 @@ except ImportError:
 # Paths
 # ========================================
 ROOT = Path(__file__).parent.parent
-DATA_PATH = ROOT / 'UCI_Credit_Card_12months.csv'  # Updated to 12-month dataset
+DATA_PATH = ROOT / 'UCI_Credit_Card_12months_OLD.csv'
 MODELS_DIR = ROOT / 'outputs' / 'models'
 EVAL_DIR = ROOT / 'outputs' / 'evaluation'
 
@@ -63,7 +63,7 @@ def load_and_preprocess():
     if not DATA_PATH.exists():
         raise FileNotFoundError(f"Không tìm thấy file data: {DATA_PATH}")
     
-    df = pd.read_csv(DATA_PATH)
+    df = pd.read_csv(DATA_PATH, engine='python', on_bad_lines='skip')
     print(f"✓ Loaded data: {df.shape}")
     
     # Preprocess theo notebook
@@ -279,10 +279,10 @@ def save_evaluation_data(
         'LogisticRegression': cm_lr
     }
     
-    # ROC data
-    fpr_xgb, tpr_xgb, _ = roc_curve(y_test, xgb_pred)
-    fpr_lgb, tpr_lgb, _ = roc_curve(y_test, lgb_pred)
-    fpr_lr, tpr_lr, _ = roc_curve(y_test, lr_pred)
+    # ROC data (include thresholds)
+    fpr_xgb, tpr_xgb, thr_xgb = roc_curve(y_test, xgb_pred)
+    fpr_lgb, tpr_lgb, thr_lgb = roc_curve(y_test, lgb_pred)
+    fpr_lr, tpr_lr, thr_lr = roc_curve(y_test, lr_pred)
     
     auc_xgb = roc_auc_score(y_test, xgb_pred)
     auc_lgb = roc_auc_score(y_test, lgb_pred)
@@ -292,6 +292,19 @@ def save_evaluation_data(
         'XGBoost': (fpr_xgb, tpr_xgb, auc_xgb),
         'LightGBM': (fpr_lgb, tpr_lgb, auc_lgb),
         'LogisticRegression': (fpr_lr, tpr_lr, auc_lr)
+    }
+
+    # Optimal thresholds using Youden's J statistic
+    j_xgb = tpr_xgb - fpr_xgb
+    j_lgb = tpr_lgb - fpr_lgb
+    j_lr = tpr_lr - fpr_lr
+    best_thr_xgb = float(thr_xgb[j_xgb.argmax()]) if len(thr_xgb) else 0.5
+    best_thr_lgb = float(thr_lgb[j_lgb.argmax()]) if len(thr_lgb) else 0.5
+    best_thr_lr = float(thr_lr[j_lr.argmax()]) if len(thr_lr) else 0.5
+    best_thresholds = {
+        'XGBoost': best_thr_xgb,
+        'LightGBM': best_thr_lgb,
+        'LogisticRegression': best_thr_lr
     }
     
     # Predictions dict
@@ -309,7 +322,8 @@ def save_evaluation_data(
         confusion_matrices=confusion_matrices,
         roc_data=roc_data,
         y_test=y_test,
-        predictions=predictions
+        predictions=predictions,
+        best_thresholds=best_thresholds
     )
     
     print(f"✓ Saved evaluation data: {eval_file}")

@@ -63,6 +63,22 @@ class PredictionResult:
             Chuỗi dạng "87.5%"
         """
         return f"{self.probability * 100:.1f}%"
+
+    def get_risk_tier(self) -> str:
+        p = self.probability
+        if p < 0.2:
+            return "Rất thấp"
+        if p < 0.4:
+            return "Thấp"
+        if p < 0.6:
+            return "Trung bình"
+        if p < 0.8:
+            return "Cao"
+        return "Rất cao"
+
+    def get_binary_label_by_tier(self) -> str:
+        tier = self.get_risk_tier()
+        return "Nguy cơ cao" if tier in ("Cao", "Rất cao") else "Nguy cơ thấp"
     
     def to_dict(self) -> Dict:
         """
