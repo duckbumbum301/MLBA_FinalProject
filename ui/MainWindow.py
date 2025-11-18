@@ -5,16 +5,18 @@ base_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(base_dir))
 try:
     from .user_model import User
-    from .PredictionTab import PredictionTab
+    from .PredictionTabWidget import PredictionTabWidget
+    from .DashboardTabWidget import DashboardTabWidget
     from .ReportTab import ReportTab
-    from .AIAssistantTab import AIAssistantTab
+    from .AIAssistantWidget import AIAssistantWidget
     from .ModelManagementTab import ModelManagementTab
     from .SystemManagementTab import SystemManagementTab
 except Exception:
     from user_model import User
-    from PredictionTab import PredictionTab
+    from PredictionTabWidget import PredictionTabWidget
+    from DashboardTabWidget import DashboardTabWidget
     from ReportTab import ReportTab
-    from AIAssistantTab import AIAssistantTab
+    from AIAssistantWidget import AIAssistantWidget
     from ModelManagementTab import ModelManagementTab
     from SystemManagementTab import SystemManagementTab
 
@@ -39,14 +41,25 @@ class MainWindow(QMainWindow):
         self.setup_tabs()
 
     def setup_tabs(self):
-        self.prediction_tab = PredictionTab(self.user)
+        # Import integration để lấy query_service
+        try:
+            from .integration import get_db_connector, get_query_service
+        except:
+            from integration import get_db_connector, get_query_service
+        
+        db = get_db_connector()
+        query_service = get_query_service(db)
+        
+        self.prediction_tab = PredictionTabWidget(self.user, query_service)
+        self.dashboard_tab = DashboardTabWidget(self.user)
         self.report_tab = ReportTab(self.user)
-        self.ai_tab = AIAssistantTab()
+        self.ai_tab = AIAssistantWidget(self.user, db)
         self.customer_tab = CustomerEntryTab(self.user.id)
-        self.tab.addTab(self.prediction_tab, 'Dự Báo')
-        self.tab.addTab(self.report_tab, 'Báo Cáo')
-        self.tab.addTab(self.ai_tab, 'AI Trợ Lý')
-        self.tab.addTab(self.customer_tab, 'Khách Hàng')
+        self.tab.addTab(self.prediction_tab, '📊 Dự Báo')
+        self.tab.addTab(self.dashboard_tab, '📈 Dashboard')
+        self.tab.addTab(self.report_tab, '📋 Báo Cáo')
+        self.tab.addTab(self.ai_tab, '🤖 AI Trợ Lý')
+        self.tab.addTab(self.customer_tab, '👥 Khách Hàng')
         if self.user.is_admin():
             self.ml_tab = ModelManagementTab()
             self.sys_tab = SystemManagementTab()
