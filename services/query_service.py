@@ -132,7 +132,7 @@ class QueryService:
         """
         query = """
             SELECT 
-                id, customer_id, model_name, predicted_label, probability, created_at
+                id, customer_id, model_name, predicted_label, probability, created_at, raw_input_json
             FROM predictions_log
             ORDER BY created_at DESC
             LIMIT %s
@@ -148,10 +148,54 @@ class QueryService:
                 'model_name': row[2],
                 'predicted_label': row[3],
                 'probability': float(row[4]),
-                'created_at': row[5]
+                'created_at': row[5],
+                'raw_input_json': row[6]
             })
         
         return predictions
+    
+    def search_customers(self, keyword: str, limit: int = 50) -> List[Dict]:
+        like = f"%{keyword}%"
+        query = """
+            SELECT id, customer_name, customer_id_card, SEX, EDUCATION, MARRIAGE, AGE
+            FROM customers
+            WHERE customer_name LIKE %s OR customer_id_card LIKE %s
+            ORDER BY id DESC
+            LIMIT %s
+        """
+        rows = self.db.fetch_all(query, (like, like, limit))
+        results = []
+        for r in rows:
+            results.append({
+                'id': r[0],
+                'customer_name': r[1],
+                'customer_id_card': r[2],
+                'SEX': r[3],
+                'EDUCATION': r[4],
+                'MARRIAGE': r[5],
+                'AGE': r[6],
+            })
+        return results
+
+    def list_customers(self, limit: int = 100) -> List[Dict]:
+        query = """
+            SELECT id, customer_name, customer_id_card, SEX, EDUCATION, MARRIAGE, AGE
+            FROM customers
+            ORDER BY id DESC
+            LIMIT %s
+        """
+        rows = self.db.fetch_all(query, (limit,))
+        return [
+            {
+                'id': r[0],
+                'customer_name': r[1],
+                'customer_id_card': r[2],
+                'SEX': r[3],
+                'EDUCATION': r[4],
+                'MARRIAGE': r[5],
+                'AGE': r[6],
+            } for r in rows
+        ]
     
     def get_customer_by_id(self, customer_id: int) -> Optional[Customer]:
         """

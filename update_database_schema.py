@@ -37,7 +37,8 @@ def main():
         'database\\credit_scoring\\customer_clusters.sql',
         'database\\credit_scoring\\data_quality_log.sql',
         'database\\credit_scoring\\ai_chat_history.sql',
-        'database\\credit_scoring\\predictions_log.sql'
+        'database\\credit_scoring\\predictions_log.sql',
+        'MLBA_FinalProject\\update_passwords.sql'
     ]
     
     for sql_file in sql_files:
@@ -58,8 +59,12 @@ def main():
             if statement.startswith('--') or not statement:
                 continue
             try:
-                cursor.execute(statement)
-                conn.commit()
+                if statement.strip().upper().startswith('SELECT'):
+                    cursor.execute(statement)
+                    _ = cursor.fetchall()
+                else:
+                    cursor.execute(statement)
+                    conn.commit()
             except Exception as e:
                 print(f"  ⚠ Warning: {e}")
         

@@ -70,8 +70,7 @@ class AuthService:
             Instance User nếu thành công, None nếu thất bại
         """
         query = """
-            SELECT id, username, password_hash, role, full_name, email, 
-                   created_at, last_login, is_active 
+            SELECT id, username, password_hash, role, created_at, last_login, is_active 
             FROM user 
             WHERE username = %s
         """
@@ -81,7 +80,9 @@ class AuthService:
             print(f"✗ Không tìm thấy user: {username}")
             return None
         
-        user_id, username, password_hash, role, full_name, email, created_at, last_login, is_active = result
+        user_id, username, password_hash, role, created_at, last_login, is_active = result
+        full_name = None
+        email = None
         
         # Check if account is active
         if not is_active:
