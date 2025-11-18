@@ -134,16 +134,12 @@ def plot_feature_importance(ax, feature_importance: Dict, top_n: int = 10) -> No
     importance = [f[1] for f in sorted_features]
     
     # Vẽ horizontal bar chart
-    ax.barh(features, importance, color='steelblue')
+    colors_list = ['darkred' if f == 'PAY_0' else 'steelblue' for f in features]
+    ax.barh(features, importance, color=colors_list)
     ax.set_xlabel('Importance Score', fontsize=10)
     ax.set_title('Top 10 Feature Importance (XGBoost)', fontsize=12, fontweight='bold')
     ax.invert_yaxis()
     ax.grid(axis='x', alpha=0.3)
-    
-    # Highlight PAY_0 nếu có
-    if 'PAY_0' in features:
-        idx = features.index('PAY_0')
-        ax.get_children()[idx].set_color('darkred')
 
 
 def plot_confusion_matrix(ax, cm: np.ndarray, model_name: str = 'XGBoost') -> None:
@@ -155,15 +151,15 @@ def plot_confusion_matrix(ax, cm: np.ndarray, model_name: str = 'XGBoost') -> No
         cm: Confusion matrix (2x2 array)
         model_name: Tên model
     """
-    # Vẽ heatmap
+    # Vẽ heatmap with rotation=0 to avoid recursion
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax, 
                 cbar=True, square=True, linewidths=1, linecolor='black')
     
     ax.set_xlabel('Predicted Label', fontsize=10)
     ax.set_ylabel('True Label', fontsize=10)
     ax.set_title(f'Confusion Matrix - {model_name}', fontsize=12, fontweight='bold')
-    ax.set_xticklabels(['No Default (0)', 'Default (1)'])
-    ax.set_yticklabels(['No Default (0)', 'Default (1)'])
+    ax.set_xticklabels(['No Default (0)', 'Default (1)'], rotation=0)
+    ax.set_yticklabels(['No Default (0)', 'Default (1)'], rotation=0)
 
 
 def plot_roc_curves(ax, roc_data: Dict) -> None:

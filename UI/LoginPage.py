@@ -48,27 +48,40 @@ class LoginPage(QWidget):
         form.addWidget(self.txtUsername)
         form.addWidget(QLabel('Password'))
         form.addWidget(self.txtPassword)
-        links = QHBoxLayout(); links.setContentsMargins(0,0,0,0)
-        forgot = QPushButton('Forgot password?'); forgot.setObjectName('LinkButton')
-        signup = QPushButton('Sign up'); signup.setObjectName('LinkButton')
-        signup.clicked.connect(lambda: self.open_signup.emit())
-        links.addWidget(forgot)
-        links.addStretch()
-        links.addWidget(QLabel("Don't have an account?"))
-        links.addWidget(signup)
-        form.addLayout(links)
         actions = QHBoxLayout(); actions.setSpacing(12)
-        self.btnUser = QPushButton('Log in as User'); self.btnUser.setObjectName('PrimaryButton')
-        self.btnAdmin = QPushButton('Log in as Admin'); self.btnAdmin.setObjectName('SecondaryButton')
-        self.btnUser.clicked.connect(lambda: self._prefill_and_login(False))
-        self.btnAdmin.clicked.connect(lambda: self._prefill_and_login(True))
-        actions.addWidget(self.btnUser)
-        actions.addWidget(self.btnAdmin)
+        self.btnLogin = QPushButton('Đăng nhập'); self.btnLogin.setObjectName('PrimaryButton')
+        self.btnLogin.clicked.connect(self.handle_login)
+        self.txtPassword.returnPressed.connect(self.handle_login)
+        actions.addWidget(self.btnLogin)
         card.addLayout(form)
         card.addLayout(actions)
         center.addWidget(wrapper, alignment=Qt.AlignmentFlag.AlignHCenter)
         root.addLayout(center)
         self.setLayout(root)
+
+    def handle_login(self):
+        """Xử lý đăng nhập với username/password thực tế"""
+        username = self.txtUsername.text().strip()
+        password = self.txtPassword.text()
+        
+        if not username or not password:
+            return
+        
+        try:
+            db = get_db_connector()
+            auth = AuthService(db)
+            user = auth.login(username, password)
+            
+            if user:
+                print(f"✓ Đăng nhập thành công: {user.username} ({user.role})")
+                role = 'Admin' if user.role == 'Admin' else 'User'
+                self.login_success.emit(SimpleUser(user.id, user.username, role))
+            else:
+                print(f"✗ Đăng nhập thất bại: Sai tên đăng nhập hoặc mật khẩu")
+            
+            db.close()
+        except Exception as e:
+            print(f"✗ Lỗi đăng nhập: {e}")
 
     def do_login(self, expected_admin: bool):
         username = self.txtUsername.text().strip()
