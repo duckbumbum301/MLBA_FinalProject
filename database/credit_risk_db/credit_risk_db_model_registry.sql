@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 8.0.44, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: credit_risk_db
 -- ------------------------------------------------------
--- Server version	8.0.44
+-- Server version	8.0.43
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -24,10 +24,10 @@ DROP TABLE IF EXISTS `model_registry`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `model_registry` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `model_name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `model_type` enum('Single','Ensemble') COLLATE utf8mb4_unicode_ci DEFAULT 'Single',
-  `algorithm` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `version` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '1.0',
+  `model_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `model_type` enum('Single','Ensemble') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Single',
+  `algorithm` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `version` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '1.0',
   `auc_score` decimal(5,4) DEFAULT NULL,
   `accuracy` decimal(5,4) DEFAULT NULL,
   `precision_score` decimal(5,4) DEFAULT NULL,
@@ -36,8 +36,8 @@ CREATE TABLE `model_registry` (
   `is_active` tinyint(1) DEFAULT '0',
   `training_time` int DEFAULT NULL,
   `trained_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `trained_by` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `model_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `trained_by` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `model_path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `model_size_mb` decimal(10,2) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `model_name` (`model_name`),
@@ -65,4 +65,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-17 22:01:28
+-- Dump completed on 2025-11-18 12:24:11

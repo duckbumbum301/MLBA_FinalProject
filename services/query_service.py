@@ -304,3 +304,72 @@ class QueryService:
         )
         
         return customer
+
+    def update_customer(self, cmnd: str, customer: Customer) -> bool:
+        """
+        Cáº­p nháº­t thÃ´ng tin khÃ¡ch hÃ ng theo CMND
+        
+        Args:
+            cmnd: Sá»‘ CMND cáº§n update
+            customer: Instance Customer vá»›i dá»¯ liá»‡u má»›i
+        
+        Returns:
+            True náº¿u thÃ nh cÃ´ng, False náº¿u tháº¥t báº¡i
+        """
+        query = """
+            UPDATE customers SET
+                customer_name = %s,
+                LIMIT_BAL = %s, SEX = %s, EDUCATION = %s, MARRIAGE = %s, AGE = %s,
+                PAY_0 = %s, PAY_2 = %s, PAY_3 = %s, PAY_4 = %s, PAY_5 = %s, PAY_6 = %s,
+                PAY_7 = %s, PAY_8 = %s, PAY_9 = %s, PAY_10 = %s, PAY_11 = %s, PAY_12 = %s,
+                BILL_AMT1 = %s, BILL_AMT2 = %s, BILL_AMT3 = %s, BILL_AMT4 = %s, BILL_AMT5 = %s, BILL_AMT6 = %s,
+                BILL_AMT7 = %s, BILL_AMT8 = %s, BILL_AMT9 = %s, BILL_AMT10 = %s, BILL_AMT11 = %s, BILL_AMT12 = %s,
+                PAY_AMT1 = %s, PAY_AMT2 = %s, PAY_AMT3 = %s, PAY_AMT4 = %s, PAY_AMT5 = %s, PAY_AMT6 = %s,
+                PAY_AMT7 = %s, PAY_AMT8 = %s, PAY_AMT9 = %s, PAY_AMT10 = %s, PAY_AMT11 = %s, PAY_AMT12 = %s
+            WHERE customer_id_card = %s
+        """
+        
+        params = (
+            customer.customer_name,
+            customer.LIMIT_BAL, customer.SEX, customer.EDUCATION, customer.MARRIAGE, customer.AGE,
+            customer.PAY_0, customer.PAY_2, customer.PAY_3, customer.PAY_4, customer.PAY_5, customer.PAY_6,
+            customer.PAY_7, customer.PAY_8, customer.PAY_9, customer.PAY_10, customer.PAY_11, customer.PAY_12,
+            customer.BILL_AMT1, customer.BILL_AMT2, customer.BILL_AMT3, 
+            customer.BILL_AMT4, customer.BILL_AMT5, customer.BILL_AMT6,
+            customer.BILL_AMT7, customer.BILL_AMT8, customer.BILL_AMT9,
+            customer.BILL_AMT10, customer.BILL_AMT11, customer.BILL_AMT12,
+            customer.PAY_AMT1, customer.PAY_AMT2, customer.PAY_AMT3,
+            customer.PAY_AMT4, customer.PAY_AMT5, customer.PAY_AMT6,
+            customer.PAY_AMT7, customer.PAY_AMT8, customer.PAY_AMT9,
+            customer.PAY_AMT10, customer.PAY_AMT11, customer.PAY_AMT12,
+            cmnd
+        )
+        
+        success = self.db.execute_query(query, params)
+        
+        if success:
+            print(f"âœ“ ÄÃ£ cáº­p nháº­t customer CMND: {cmnd}")
+        else:
+            print(f"âœ— KhÃ´ng thá»ƒ cáº­p nháº­t customer CMND: {cmnd}")
+        
+        return success
+    
+    def delete_customer(self, cmnd: str) -> bool:
+        """
+        XÃ³a khÃ¡ch hÃ ng theo CMND
+        
+        Args:
+            cmnd: Sá»‘ CMND cáº§n xÃ³a
+        
+        Returns:
+            True náº¿u thÃ nh cÃ´ng, False náº¿u tháº¥t báº¡i
+        """
+        query = "DELETE FROM customers WHERE customer_id_card = %s"
+        success = self.db.execute_query(query, (cmnd,))
+        
+        if success:
+            print(f"âœ“ ÄÃ£ xÃ³a customer CMND: {cmnd}")
+        else:
+            print(f"âœ— KhÃ´ng thá»ƒ xÃ³a customer CMND: {cmnd}")
+        
+        return success

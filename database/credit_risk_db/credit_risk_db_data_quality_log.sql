@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 8.0.44, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: credit_risk_db
 -- ------------------------------------------------------
--- Server version	8.0.44
+-- Server version	8.0.43
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -25,16 +25,16 @@ DROP TABLE IF EXISTS `data_quality_log`;
 CREATE TABLE `data_quality_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `record_id` int DEFAULT NULL,
-  `record_type` enum('Customer','Prediction') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `issue_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `severity` enum('Low','Medium','High') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `detection_method` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `record_type` enum('Customer','Prediction') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `issue_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `severity` enum('Low','Medium','High') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `detection_method` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `detected_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `detected_by` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `action_taken` enum('Deleted','Fixed','Ignored','Pending') COLLATE utf8mb4_unicode_ci DEFAULT 'Pending',
+  `detected_by` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `action_taken` enum('Deleted','Fixed','Ignored','Pending') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Pending',
   `action_at` datetime DEFAULT NULL,
-  `action_by` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `notes` text COLLATE utf8mb4_unicode_ci,
+  `action_by` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id`),
   KEY `idx_record` (`record_id`),
   KEY `idx_issue` (`issue_type`),
@@ -60,4 +60,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-17 22:01:28
+-- Dump completed on 2025-11-18 12:24:11

@@ -29,10 +29,13 @@ class PredictionTabWidget(QWidget):
     Chứa 41 trường input (12 tháng lịch sử) và hiển thị kết quả dự báo
     """
     
+    EXCHANGE_RATE = 800  # 1 NT$ = 800 VND
+    
     def __init__(self, user: User, query_service: QueryService):
         super().__init__()
         self.user = user
         self.query_service = query_service
+        self.current_currency = 'VND'  # Mặc định VND
         
         # Init ML Service
         try:
@@ -47,6 +50,25 @@ class PredictionTabWidget(QWidget):
     def setup_ui(self):
         """Thiết lập giao diện"""
         main_layout = QVBoxLayout()
+        
+        # === CURRENCY SELECTOR ===
+        currency_layout = QHBoxLayout()
+        currency_layout.addWidget(QLabel("💰 Đơn vị tiền tệ:"))
+        
+        self.rbtn_vnd = QRadioButton("VND (Việt Nam Đồng)")
+        self.rbtn_ntd = QRadioButton("NT$ (Đài Tệ)")
+        self.rbtn_vnd.setChecked(True)  # Mặc định VND
+        
+        self.currency_group = QButtonGroup()
+        self.currency_group.addButton(self.rbtn_vnd)
+        self.currency_group.addButton(self.rbtn_ntd)
+        self.currency_group.buttonClicked.connect(self.on_currency_changed)
+        
+        currency_layout.addWidget(self.rbtn_vnd)
+        currency_layout.addWidget(self.rbtn_ntd)
+        currency_layout.addStretch()
+        
+        main_layout.addLayout(currency_layout)
         
         # === ADMIN: Model Selector ===
         if self.user.is_admin():
@@ -101,6 +123,43 @@ class PredictionTabWidget(QWidget):
         
         # === BUTTONS ===
         button_layout = QHBoxLayout()
+        
+        # CRUD Buttons
+        self.btnSaveCustomer = QPushButton("💾 Lưu Khách Hàng")
+        self.btnSaveCustomer.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        self.btnSaveCustomer.clicked.connect(self.save_customer)
+        self.btnSaveCustomer.setToolTip("Lưu thông tin khách hàng vào database (Create/Update)")
+        button_layout.addWidget(self.btnSaveCustomer)
+        
+        self.btnDeleteCustomer = QPushButton("🗑️ Xóa Khách Hàng")
+        self.btnDeleteCustomer.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        self.btnDeleteCustomer.clicked.connect(self.delete_customer)
+        self.btnDeleteCustomer.setToolTip("Xóa khách hàng khỏi database theo CMND")
+        button_layout.addWidget(self.btnDeleteCustomer)
         
         self.chkSaveHistory = QCheckBox("Lưu vào lịch sử dự báo")
         self.chkSaveHistory.setChecked(True)
@@ -191,21 +250,12 @@ class PredictionTabWidget(QWidget):
         
         layout.addRow("CMND/CCCD:", cmnd_layout)
         
-        # LIMIT_BAL (dual currency)
+        # LIMIT_BAL
         self.spnLimitBal = QDoubleSpinBox()
-        self.spnLimitBal.setRange(0, 10000000)
-        self.spnLimitBal.setValue(50000)
-        self.spnLimitBal.setToolTip("Hạn mức tín dụng của thẻ (1 NT$ = 800 VND)")
-        self.spnLimitBal.valueChanged.connect(self.update_limit_bal_label)
-        
-        self.lblLimitBalVND = QLabel()
-        self.lblLimitBalVND.setStyleSheet("color: #7f8c8d; font-style: italic;")
-        self.update_limit_bal_label(50000)
-        
-        limit_layout = QVBoxLayout()
-        limit_layout.addWidget(self.spnLimitBal)
-        limit_layout.addWidget(self.lblLimitBalVND)
-        layout.addRow("Hạn mức thẻ:", limit_layout)
+        self.spnLimitBal.setRange(0, 10000000 * self.EXCHANGE_RATE)
+        self.spnLimitBal.setValue(50000 * self.EXCHANGE_RATE)  # 40M VND mặc định
+        self.spnLimitBal.setToolTip("Hạn mức tín dụng của thẻ")
+        layout.addRow("Hạn mức thẻ:", self.spnLimitBal)
         
         # SEX
         self.cmbSex = QComboBox()
@@ -421,10 +471,6 @@ class PredictionTabWidget(QWidget):
         self.bill_amts = []
         self.pay_amts = []
         
-        # 12 tháng: từ gần đến xa (Tháng 12 → 1)
-        self.bill_labels_vnd = []
-        self.pay_labels_vnd = []
-        
         for i in range(1, 13):
             month_num = 13 - i  # Tháng 12, 11, 10, ..., 1
             month_label = f"Tháng {month_num}"
@@ -434,40 +480,20 @@ class PredictionTabWidget(QWidget):
                 month_label += " (xa nhất)"
             
             # BILL_AMT - Số dư sao kê
-            bill_container = QVBoxLayout()
             spn_bill = QDoubleSpinBox()
-            spn_bill.setRange(-1000000, 10000000)
+            spn_bill.setRange(-1000000 * self.EXCHANGE_RATE, 10000000 * self.EXCHANGE_RATE)
             spn_bill.setValue(0)
-            spn_bill.setToolTip(f"Số dư sao kê {month_label.lower()} (1 NT$ = 800 VND)")
-            spn_bill.valueChanged.connect(lambda val, idx=i-1: self.update_bill_vnd_label(idx, val))
-            bill_container.addWidget(spn_bill)
-            
-            lbl_bill_vnd = QLabel()
-            lbl_bill_vnd.setStyleSheet("color: #7f8c8d; font-style: italic; font-size: 10px;")
-            bill_container.addWidget(lbl_bill_vnd)
-            
-            form_layout.addRow(f"Số dư {month_label}:", bill_container)
+            spn_bill.setToolTip(f"Số dư sao kê {month_label.lower()}")
+            form_layout.addRow(f"Số dư {month_label}:", spn_bill)
             self.bill_amts.append(spn_bill)
-            self.bill_labels_vnd.append(lbl_bill_vnd)
-            self.update_bill_vnd_label(i-1, 0)
             
             # PAY_AMT - Số tiền đã thanh toán
-            pay_container = QVBoxLayout()
             spn_pay = QDoubleSpinBox()
-            spn_pay.setRange(0, 10000000)
+            spn_pay.setRange(0, 10000000 * self.EXCHANGE_RATE)
             spn_pay.setValue(0)
-            spn_pay.setToolTip(f"Số tiền đã thanh toán {month_label.lower()} (1 NT$ = 800 VND)")
-            spn_pay.valueChanged.connect(lambda val, idx=i-1: self.update_pay_vnd_label(idx, val))
-            pay_container.addWidget(spn_pay)
-            
-            lbl_pay_vnd = QLabel()
-            lbl_pay_vnd.setStyleSheet("color: #7f8c8d; font-style: italic; font-size: 10px;")
-            pay_container.addWidget(lbl_pay_vnd)
-            
-            form_layout.addRow(f"Thanh toán {month_label}:", pay_container)
+            spn_pay.setToolTip(f"Số tiền đã thanh toán {month_label.lower()}")
+            form_layout.addRow(f"Thanh toán {month_label}:", spn_pay)
             self.pay_amts.append(spn_pay)
-            self.pay_labels_vnd.append(lbl_pay_vnd)
-            self.update_pay_vnd_label(i-1, 0)
         
         main_layout.addLayout(form_layout)
         group.setLayout(main_layout)
@@ -552,8 +578,12 @@ class PredictionTabWidget(QWidget):
         
         input_dict = {}
         
-        # 1. Thông tin cá nhân (5 fields)
-        input_dict['LIMIT_BAL'] = self.spnLimitBal.value()
+        # 1. Thông tin cá nhân (5 fields) - CHUYỂN ĐỔI VỀ NT$ NẾU CẦN
+        limit_bal = self.spnLimitBal.value()
+        if self.current_currency == 'VND':
+            limit_bal = limit_bal / self.EXCHANGE_RATE  # VND -> NT$
+        input_dict['LIMIT_BAL'] = limit_bal
+        
         input_dict['SEX'] = sex_map.get(self.cmbSex.currentText(), 1)
         input_dict['EDUCATION'] = edu_map.get(self.cmbEducation.currentText(), 2)
         input_dict['MARRIAGE'] = mar_map.get(self.cmbMarriage.currentText(), 2)
@@ -575,33 +605,19 @@ class PredictionTabWidget(QWidget):
         input_dict['PAY_11'] = parse_pay_value(self.pay_combos['PAY_11'].currentText()) if is_12months else 0
         input_dict['PAY_12'] = parse_pay_value(self.pay_combos['PAY_12'].currentText()) if is_12months else 0
         
-        # 3. Bill amounts - TẤT CẢ 12 tháng (BILL_AMT1-12)
-        input_dict['BILL_AMT1'] = self.bill_amts[0].value()
-        input_dict['BILL_AMT2'] = self.bill_amts[1].value()
-        input_dict['BILL_AMT3'] = self.bill_amts[2].value()
-        input_dict['BILL_AMT4'] = self.bill_amts[3].value()
-        input_dict['BILL_AMT5'] = self.bill_amts[4].value()
-        input_dict['BILL_AMT6'] = self.bill_amts[5].value()
-        input_dict['BILL_AMT7'] = self.bill_amts[6].value() if is_12months else 0.0
-        input_dict['BILL_AMT8'] = self.bill_amts[7].value() if is_12months else 0.0
-        input_dict['BILL_AMT9'] = self.bill_amts[8].value() if is_12months else 0.0
-        input_dict['BILL_AMT10'] = self.bill_amts[9].value() if is_12months else 0.0
-        input_dict['BILL_AMT11'] = self.bill_amts[10].value() if is_12months else 0.0
-        input_dict['BILL_AMT12'] = self.bill_amts[11].value() if is_12months else 0.0
+        # 3. Bill amounts - TẤT CẢ 12 tháng (BILL_AMT1-12) - CHUYỂN ĐỔI VỀ NT$
+        for i in range(12):
+            bill_val = self.bill_amts[i].value() if is_12months or i < 6 else 0.0
+            if self.current_currency == 'VND':
+                bill_val = bill_val / self.EXCHANGE_RATE
+            input_dict[f'BILL_AMT{i+1}'] = bill_val
         
-        # 4. Payment amounts - TẤT CẢ 12 tháng (PAY_AMT1-12)
-        input_dict['PAY_AMT1'] = self.pay_amts[0].value()
-        input_dict['PAY_AMT2'] = self.pay_amts[1].value()
-        input_dict['PAY_AMT3'] = self.pay_amts[2].value()
-        input_dict['PAY_AMT4'] = self.pay_amts[3].value()
-        input_dict['PAY_AMT5'] = self.pay_amts[4].value()
-        input_dict['PAY_AMT6'] = self.pay_amts[5].value()
-        input_dict['PAY_AMT7'] = self.pay_amts[6].value() if is_12months else 0.0
-        input_dict['PAY_AMT8'] = self.pay_amts[7].value() if is_12months else 0.0
-        input_dict['PAY_AMT9'] = self.pay_amts[8].value() if is_12months else 0.0
-        input_dict['PAY_AMT10'] = self.pay_amts[9].value() if is_12months else 0.0
-        input_dict['PAY_AMT11'] = self.pay_amts[10].value() if is_12months else 0.0
-        input_dict['PAY_AMT12'] = self.pay_amts[11].value() if is_12months else 0.0
+        # 4. Payment amounts - TẤT CẢ 12 tháng (PAY_AMT1-12) - CHUYỂN ĐỔI VỀ NT$
+        for i in range(12):
+            pay_val = self.pay_amts[i].value() if is_12months or i < 6 else 0.0
+            if self.current_currency == 'VND':
+                pay_val = pay_val / self.EXCHANGE_RATE
+            input_dict[f'PAY_AMT{i+1}'] = pay_val
         
         return input_dict
     
@@ -700,7 +716,11 @@ class PredictionTabWidget(QWidget):
         """Xóa toàn bộ form"""
         self.txtCustomerName.clear()
         self.txtCustomerID.clear()
-        self.spnLimitBal.setValue(50000)
+        
+        # Reset về VND với giá trị mặc định
+        default_limit = 50000 * self.EXCHANGE_RATE  # 40M VND
+        self.spnLimitBal.setValue(default_limit)
+        
         self.cmbSex.setCurrentIndex(0)
         self.cmbEducation.setCurrentIndex(1)
         self.cmbMarriage.setCurrentIndex(1)
@@ -825,20 +845,38 @@ class PredictionTabWidget(QWidget):
         dialog.setLayout(layout)
         dialog.exec()
     
-    def update_limit_bal_label(self, value):
-        """Cập nhật label hiển thị VND cho LIMIT_BAL"""
-        vnd_value = value * 800
-        self.lblLimitBalVND.setText(f"{value:,.0f} NT$ = {vnd_value:,.0f} VND")
-    
-    def update_bill_vnd_label(self, index, value):
-        """Cập nhật label hiển thị VND cho BILL_AMT"""
-        vnd_value = value * 800
-        self.bill_labels_vnd[index].setText(f"{value:,.0f} NT$ = {vnd_value:,.0f} VND")
-    
-    def update_pay_vnd_label(self, index, value):
-        """Cập nhật label hiển thị VND cho PAY_AMT"""
-        vnd_value = value * 800
-        self.pay_labels_vnd[index].setText(f"{value:,.0f} NT$ = {vnd_value:,.0f} VND")
+    def on_currency_changed(self):
+        """Xử lý khi user đổi đơn vị tiền tệ"""
+        old_currency = self.current_currency
+        new_currency = 'VND' if self.rbtn_vnd.isChecked() else 'NT$'
+        
+        if old_currency == new_currency:
+            return
+        
+        # Chuyển đổi tất cả giá trị
+        if new_currency == 'VND':
+            # NT$ -> VND: nhân 800
+            multiplier = self.EXCHANGE_RATE
+        else:
+            # VND -> NT$: chia 800
+            multiplier = 1 / self.EXCHANGE_RATE
+        
+        # Convert LIMIT_BAL
+        self.spnLimitBal.setValue(self.spnLimitBal.value() * multiplier)
+        self.spnLimitBal.setRange(0, 10000000 * (self.EXCHANGE_RATE if new_currency == 'VND' else 1))
+        
+        # Convert BILL_AMT
+        for spn in self.bill_amts:
+            spn.setValue(spn.value() * multiplier)
+            spn.setRange(-1000000 * (self.EXCHANGE_RATE if new_currency == 'VND' else 1),
+                        10000000 * (self.EXCHANGE_RATE if new_currency == 'VND' else 1))
+        
+        # Convert PAY_AMT
+        for spn in self.pay_amts:
+            spn.setValue(spn.value() * multiplier)
+            spn.setRange(0, 10000000 * (self.EXCHANGE_RATE if new_currency == 'VND' else 1))
+        
+        self.current_currency = new_currency
     
     def search_customer(self):
         """Tìm kiếm khách hàng theo CMND và tự động điền form"""
@@ -868,10 +906,14 @@ class PredictionTabWidget(QWidget):
     
     def load_customer_data(self, customer: Customer):
         """Tải dữ liệu khách hàng vào form (41 fields)"""
-        # Thông tin cá nhân
+        # Thông tin cá nhân - Database lưu NT$, chuyển sang currency hiện tại
         self.txtCustomerName.setText(customer.customer_name)
         self.txtCustomerID.setText(customer.customer_id_card)
-        self.spnLimitBal.setValue(customer.LIMIT_BAL)
+        
+        limit_val = customer.LIMIT_BAL
+        if self.current_currency == 'VND':
+            limit_val *= self.EXCHANGE_RATE
+        self.spnLimitBal.setValue(limit_val)
         
         # SEX: 1=Male, 2=Female
         self.cmbSex.setCurrentIndex(0 if customer.SEX == 1 else 1)
@@ -907,7 +949,7 @@ class PredictionTabWidget(QWidget):
             
             self.pay_combos[pay_field].setCurrentIndex(index)
         
-        # Chi tiết sao kê (BILL_AMT1-12, PAY_AMT1-12)
+        # Chi tiết sao kê (BILL_AMT1-12, PAY_AMT1-12) - Chuyển đổi sang currency hiện tại
         bill_values = [
             customer.BILL_AMT1, customer.BILL_AMT2, customer.BILL_AMT3,
             customer.BILL_AMT4, customer.BILL_AMT5, customer.BILL_AMT6,
@@ -922,6 +964,139 @@ class PredictionTabWidget(QWidget):
             customer.PAY_AMT10, customer.PAY_AMT11, customer.PAY_AMT12
         ]
         
+        multiplier = self.EXCHANGE_RATE if self.current_currency == 'VND' else 1
+        
         for i in range(12):
-            self.bill_amts[i].setValue(bill_values[i])
-            self.pay_amts[i].setValue(pay_amt_values[i])
+            self.bill_amts[i].setValue(bill_values[i] * multiplier)
+            self.pay_amts[i].setValue(pay_amt_values[i] * multiplier)
+    
+    def save_customer(self):
+        """Lưu khách hàng vào database (Create/Update)"""
+        cmnd = self.txtCustomerID.text().strip()
+        name = self.txtCustomerName.text().strip()
+        
+        if not cmnd:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng nhập số CMND/CCCD để lưu khách hàng")
+            return
+        
+        if not name:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng nhập tên khách hàng")
+            return
+        
+        try:
+            # Thu thập dữ liệu từ form
+            input_dict = self.collect_input()
+            
+            # Tạo Customer object (đã convert về NT$)
+            sex_map = {"Nam": 1, "Nữ": 2}
+            edu_map = {"Cao học": 1, "Đại học": 2, "Trung học": 3, "Khác": 4}
+            mar_map = {"Kết hôn": 1, "Độc thân": 2, "Khác": 3}
+            
+            customer = Customer(
+                customer_name=name,
+                customer_id_card=cmnd,
+                LIMIT_BAL=input_dict['LIMIT_BAL'],
+                SEX=input_dict['SEX'],
+                EDUCATION=input_dict['EDUCATION'],
+                MARRIAGE=input_dict['MARRIAGE'],
+                AGE=input_dict['AGE'],
+                PAY_0=input_dict['PAY_0'],
+                PAY_2=input_dict['PAY_2'],
+                PAY_3=input_dict['PAY_3'],
+                PAY_4=input_dict['PAY_4'],
+                PAY_5=input_dict['PAY_5'],
+                PAY_6=input_dict['PAY_6'],
+                PAY_7=input_dict['PAY_7'],
+                PAY_8=input_dict['PAY_8'],
+                PAY_9=input_dict['PAY_9'],
+                PAY_10=input_dict['PAY_10'],
+                PAY_11=input_dict['PAY_11'],
+                PAY_12=input_dict['PAY_12'],
+                BILL_AMT1=input_dict['BILL_AMT1'],
+                BILL_AMT2=input_dict['BILL_AMT2'],
+                BILL_AMT3=input_dict['BILL_AMT3'],
+                BILL_AMT4=input_dict['BILL_AMT4'],
+                BILL_AMT5=input_dict['BILL_AMT5'],
+                BILL_AMT6=input_dict['BILL_AMT6'],
+                BILL_AMT7=input_dict['BILL_AMT7'],
+                BILL_AMT8=input_dict['BILL_AMT8'],
+                BILL_AMT9=input_dict['BILL_AMT9'],
+                BILL_AMT10=input_dict['BILL_AMT10'],
+                BILL_AMT11=input_dict['BILL_AMT11'],
+                BILL_AMT12=input_dict['BILL_AMT12'],
+                PAY_AMT1=input_dict['PAY_AMT1'],
+                PAY_AMT2=input_dict['PAY_AMT2'],
+                PAY_AMT3=input_dict['PAY_AMT3'],
+                PAY_AMT4=input_dict['PAY_AMT4'],
+                PAY_AMT5=input_dict['PAY_AMT5'],
+                PAY_AMT6=input_dict['PAY_AMT6'],
+                PAY_AMT7=input_dict['PAY_AMT7'],
+                PAY_AMT8=input_dict['PAY_AMT8'],
+                PAY_AMT9=input_dict['PAY_AMT9'],
+                PAY_AMT10=input_dict['PAY_AMT10'],
+                PAY_AMT11=input_dict['PAY_AMT11'],
+                PAY_AMT12=input_dict['PAY_AMT12']
+            )
+            
+            # Kiểm tra CMND đã tồn tại chưa
+            existing = self.query_service.get_customer_by_cmnd(cmnd)
+            
+            if existing:
+                # Update
+                reply = QMessageBox.question(
+                    self, 'Xác nhận',
+                    f'CMND {cmnd} đã tồn tại. Bạn có muốn cập nhật thông tin không?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    success = self.query_service.update_customer(cmnd, customer)
+                    if success:
+                        QMessageBox.information(self, "Thành công", 
+                                                f"Đã cập nhật thông tin khách hàng: {name}")
+            else:
+                # Create
+                customer_id = self.query_service.save_customer(customer)
+                if customer_id:
+                    QMessageBox.information(self, "Thành công", 
+                                            f"Đã lưu khách hàng mới: {name} (ID: {customer_id})")
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi", f"Lỗi khi lưu khách hàng: {str(e)}")
+    
+    def delete_customer(self):
+        """Xóa khách hàng khỏi database"""
+        cmnd = self.txtCustomerID.text().strip()
+        
+        if not cmnd:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng nhập số CMND/CCCD để xóa khách hàng")
+            return
+        
+        try:
+            # Kiểm tra tồn tại
+            customer = self.query_service.get_customer_by_cmnd(cmnd)
+            
+            if not customer:
+                QMessageBox.information(self, "Không tìm thấy", 
+                                        f"Không tìm thấy khách hàng với CMND: {cmnd}")
+                return
+            
+            # Xác nhận xóa
+            reply = QMessageBox.question(
+                self, 'Xác nhận xóa',
+                f'Bạn có chắc chắn muốn xóa khách hàng:\n\n'
+                f'Tên: {customer.customer_name}\n'
+                f'CMND: {cmnd}\n\n'
+                f'Thao tác này KHÔNG THỂ hoàn tác!',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                success = self.query_service.delete_customer(cmnd)
+                if success:
+                    QMessageBox.information(self, "Thành công", 
+                                            f"Đã xóa khách hàng: {customer.customer_name}")
+                    self.clear_form()
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi", f"Lỗi khi xóa khách hàng: {str(e)}")
