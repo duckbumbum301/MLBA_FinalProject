@@ -2,7 +2,9 @@
 MainWindow - Credit Risk System main interface
 Features: Prediction, Dashboard, Reports, AI Assistant, Customer Management
 """
-from PyQt6.QtWidgets import QMainWindow, QTabWidget
+from PyQt6.QtWidgets import QMainWindow, QTabWidget, QMenuBar, QMessageBox
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QAction
 import sys
 from pathlib import Path
 base_dir = Path(__file__).resolve().parent
@@ -35,6 +37,8 @@ except Exception:
     from CustomerEntryTab import CustomerEntryTab
 
 class MainWindow(QMainWindow):
+    logout_signal = pyqtSignal()
+    
     def __init__(self, user: User):
         super().__init__()
         self.user = user
@@ -42,7 +46,36 @@ class MainWindow(QMainWindow):
         self.tab = QTabWidget()
         self.setCentralWidget(self.tab)
         self.setStyleSheet(STYLE_QSS)
+        self.setup_menu()
         self.setup_tabs()
+    
+    def setup_menu(self):
+        """Thiết lập menu bar với nút đăng xuất"""
+        menubar = self.menuBar()
+        
+        # Menu Tài khoản
+        account_menu = menubar.addMenu('⚙️ Tài khoản')
+        
+        # Action đăng xuất
+        logout_action = QAction('🚪 Đăng xuất', self)
+        logout_action.setShortcut('Ctrl+Q')
+        logout_action.triggered.connect(self.handle_logout)
+        account_menu.addAction(logout_action)
+    
+    def handle_logout(self):
+        """Xử lý đăng xuất"""
+        reply = QMessageBox.question(
+            self,
+            'Đăng xuất',
+            f'Bạn có chắc muốn đăng xuất khỏi tài khoản "{self.user.username}"?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            print(f"✓ Đăng xuất: {self.user.username}")
+            self.logout_signal.emit()
+            self.close()
 
     def setup_tabs(self):
         # Import integration để lấy query_service

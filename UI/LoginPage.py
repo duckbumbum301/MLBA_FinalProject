@@ -52,6 +52,17 @@ class LoginPage(QWidget):
         form.addWidget(self.txtUsername)
         form.addWidget(QLabel('Password'))
         form.addWidget(self.txtPassword)
+        
+        # Signup link
+        signup_layout = QHBoxLayout()
+        signup_layout.addStretch()
+        signup_layout.addWidget(QLabel("Chưa có tài khoản?"))
+        btnSignupLink = QPushButton('Đăng ký ngay')
+        btnSignupLink.setObjectName('LinkButton')
+        btnSignupLink.clicked.connect(self.open_signup.emit)
+        signup_layout.addWidget(btnSignupLink)
+        form.addLayout(signup_layout)
+        
         actions = QHBoxLayout(); actions.setSpacing(12)
         self.btnLogin = QPushButton('Đăng nhập'); self.btnLogin.setObjectName('PrimaryButton')
         self.btnLogin.clicked.connect(self.handle_login)
