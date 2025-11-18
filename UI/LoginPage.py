@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QSpacerItem, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QSpacerItem, QSizePolicy, QGraphicsDropShadowEffect
+from PyQt6.QtGui import QColor, QPixmap
 from PyQt6.QtCore import Qt, pyqtSignal
 from pathlib import Path
 import sys
@@ -10,12 +11,20 @@ try:
 except Exception:
     from .integration import get_db_connector
     from .user_model import User as SimpleUser
+
+# Import AuthService từ services
 try:
-    proj = Path(__file__).resolve().parents[1] / 'MLBA_FinalProject'
+    proj = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(proj))
     from services.auth_service import AuthService
 except Exception:
     AuthService = None
+
+# Import STYLE_QSS cho UI
+try:
+    from .style import STYLE_QSS
+except Exception:
+    from style import STYLE_QSS
 
 class LoginPage(QWidget):
     login_success = pyqtSignal(SimpleUser)
@@ -23,39 +32,70 @@ class LoginPage(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.setStyleSheet(STYLE_QSS)
         self.setup_ui()
 
     def setup_ui(self):
         self.setObjectName('LoginPage')
-        root = QVBoxLayout(); root.setAlignment(Qt.AlignmentFlag.AlignTop); root.setContentsMargins(0,0,0,0)
+        root = QVBoxLayout(); root.setContentsMargins(0,0,0,0)
         top = QFrame(); top.setObjectName('TopBar'); th = QHBoxLayout(top); th.setContentsMargins(16,8,16,8)
         titleBar = QLabel('Credit Risk Management System')
         th.addWidget(titleBar)
         th.addStretch()
         right = QLabel('Not logged in'); right.setObjectName('HeaderStatus'); th.addWidget(right)
         root.addWidget(top)
-        root.addSpacerItem(QSpacerItem(20,40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed))
-        center = QVBoxLayout(); center.setAlignment(Qt.AlignmentFlag.AlignTop)
+        center = QVBoxLayout()
         wrapper = QWidget(); wrapper.setObjectName('Card'); wrapper.setMaximumWidth(520)
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(16)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(0,0,0,40))
+        wrapper.setGraphicsEffect(shadow)
         card = QVBoxLayout(wrapper); card.setContentsMargins(20,20,20,20)
         title = QLabel('Welcome to NYTDT - Credit Risk Management System!')
         title.setObjectName('CardTitle')
+        title.setWordWrap(True)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         card.addWidget(title, alignment=Qt.AlignmentFlag.AlignHCenter)
+        logo = QLabel()
+        logo.setObjectName('Logo')
+        pix = QPixmap(str(base_dir / 'images' / 'logo_nytdt.png'))
+        if not pix.isNull():
+            logo.setPixmap(pix.scaled(120, 120, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        card.addWidget(logo, alignment=Qt.AlignmentFlag.AlignHCenter)
         form = QVBoxLayout(); form.setSpacing(10)
         self.txtUsername = QLineEdit(); self.txtUsername.setPlaceholderText('Enter your user name')
+        self.txtUsername.setText('babyshark')
         self.txtPassword = QLineEdit(); self.txtPassword.setEchoMode(QLineEdit.EchoMode.Password); self.txtPassword.setPlaceholderText('Enter your password')
+        self.txtPassword.setText('123')
         form.addWidget(QLabel('User name'))
         form.addWidget(self.txtUsername)
         form.addWidget(QLabel('Password'))
         form.addWidget(self.txtPassword)
+
+        links = QHBoxLayout(); links.setSpacing(12)
+        btnForgot = QPushButton('Forgot password?'); btnForgot.setObjectName('LinkButton')
+        lblNoAccount = QLabel("Don't have an account?")
+        btnSignup = QPushButton('Sign up'); btnSignup.setObjectName('LinkButton')
+        btnSignup.clicked.connect(self.open_signup.emit)
+        links.addWidget(btnForgot)
+        links.addStretch()
+        links.addWidget(lblNoAccount)
+        links.addWidget(btnSignup)
+
         actions = QHBoxLayout(); actions.setSpacing(12)
-        self.btnLogin = QPushButton('Đăng nhập'); self.btnLogin.setObjectName('PrimaryButton')
-        self.btnLogin.clicked.connect(self.handle_login)
+        self.btnSignIn = QPushButton('Sign In'); self.btnSignIn.setObjectName('PrimaryButton')
+        self.btnSignIn.clicked.connect(self.handle_login)
         self.txtPassword.returnPressed.connect(self.handle_login)
-        actions.addWidget(self.btnLogin)
+        actions.addWidget(self.btnSignIn)
+
         card.addLayout(form)
+        card.addLayout(links)
         card.addLayout(actions)
+        center.addStretch()
         center.addWidget(wrapper, alignment=Qt.AlignmentFlag.AlignHCenter)
+        center.addStretch()
         root.addLayout(center)
         self.setLayout(root)
 
