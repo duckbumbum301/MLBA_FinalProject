@@ -7,10 +7,12 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout,
     QLineEdit, QComboBox, QDoubleSpinBox, QPushButton, QLabel,
-    QCheckBox, QMessageBox, QScrollArea
+    QCheckBox, QMessageBox, QScrollArea, QRadioButton, QButtonGroup,
+    QDialog, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QColor
+import random
 
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
@@ -45,6 +47,36 @@ class PredictionTabWidget(QWidget):
     def setup_ui(self):
         """Thiết lập giao diện"""
         main_layout = QVBoxLayout()
+        
+        # === ADMIN: Model Selector ===
+        if self.user.is_admin():
+            model_selector_layout = QHBoxLayout()
+            model_selector_layout.addWidget(QLabel("🎯 Chọn Model:"))
+            
+            self.model_selector = QComboBox()
+            self.model_selector.addItems([
+                "XGBoost (Active)",
+                "LightGBM",
+                "CatBoost",
+                "RandomForest",
+                "Logistic",
+                "NeuralNet",
+                "Voting",
+                "Stacking"
+            ])
+            self.model_selector.setStyleSheet("""
+                QComboBox {
+                    padding: 5px;
+                    border: 2px solid #3498db;
+                    border-radius: 5px;
+                    font-weight: bold;
+                }
+            """)
+            model_selector_layout.addWidget(self.model_selector)
+            model_selector_layout.addStretch()
+            main_layout.addLayout(model_selector_layout)
+        else:
+            self.model_selector = None
         
         # Scroll area để chứa nhiều input
         scroll = QScrollArea()
@@ -97,6 +129,25 @@ class PredictionTabWidget(QWidget):
         self.btnPredict.clicked.connect(self.on_predict_clicked)
         button_layout.addWidget(self.btnPredict)
         
+        # === ADMIN: Compare All Models Button ===
+        if self.user.is_admin():
+            self.btnCompareAll = QPushButton("📊 So Sánh 8 Models")
+            self.btnCompareAll.setStyleSheet("""
+                QPushButton {
+                    background-color: #9b59b6;
+                    color: white;
+                    padding: 10px 20px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #8e44ad;
+                }
+            """)
+            self.btnCompareAll.clicked.connect(self.compare_all_models)
+            button_layout.addWidget(self.btnCompareAll)
+        
         main_layout.addLayout(button_layout)
         
         # === RESULT DISPLAY ===
@@ -115,80 +166,148 @@ class PredictionTabWidget(QWidget):
         self.txtCustomerName.setPlaceholderText("Tên khách hàng (tùy chọn)")
         layout.addRow("Tên khách hàng:", self.txtCustomerName)
         
-        # Customer ID card (optional)
+        # Customer ID card (optional) + Search Button
+        cmnd_layout = QHBoxLayout()
         self.txtCustomerID = QLineEdit()
         self.txtCustomerID.setPlaceholderText("CMND/CCCD (tùy chọn)")
-        layout.addRow("CMND/CCCD:", self.txtCustomerID)
+        cmnd_layout.addWidget(self.txtCustomerID)
         
-        # LIMIT_BAL
+        self.btnSearch = QPushButton("🔍 Tìm kiếm")
+        self.btnSearch.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        self.btnSearch.clicked.connect(self.search_customer)
+        self.btnSearch.setToolTip("Tìm kiếm khách hàng theo CMND/CCCD và tự động điền form")
+        cmnd_layout.addWidget(self.btnSearch)
+        
+        layout.addRow("CMND/CCCD:", cmnd_layout)
+        
+        # LIMIT_BAL (dual currency)
         self.spnLimitBal = QDoubleSpinBox()
         self.spnLimitBal.setRange(0, 10000000)
         self.spnLimitBal.setValue(50000)
-        self.spnLimitBal.setSuffix(" NT$")
-        layout.addRow("Hạn mức thẻ (LIMIT_BAL):", self.spnLimitBal)
+        self.spnLimitBal.setToolTip("Hạn mức tín dụng của thẻ (1 NT$ = 800 VND)")
+        self.spnLimitBal.valueChanged.connect(self.update_limit_bal_label)
+        
+        self.lblLimitBalVND = QLabel()
+        self.lblLimitBalVND.setStyleSheet("color: #7f8c8d; font-style: italic;")
+        self.update_limit_bal_label(50000)
+        
+        limit_layout = QVBoxLayout()
+        limit_layout.addWidget(self.spnLimitBal)
+        limit_layout.addWidget(self.lblLimitBalVND)
+        layout.addRow("Hạn mức thẻ:", limit_layout)
         
         # SEX
         self.cmbSex = QComboBox()
-        self.cmbSex.addItems(["1 - Nam", "2 - Nữ"])
-        layout.addRow("Giới tính (SEX):", self.cmbSex)
+        self.cmbSex.addItems(["Nam", "Nữ"])
+        layout.addRow("Giới tính:", self.cmbSex)
         
         # EDUCATION
         self.cmbEducation = QComboBox()
         self.cmbEducation.addItems([
-            "1 - Cao học",
-            "2 - Đại học",
-            "3 - Trung học",
-            "4 - Khác"
+            "Cao học",
+            "Đại học",
+            "Trung học",
+            "Khác"
         ])
         self.cmbEducation.setCurrentIndex(1)  # Default: Đại học
-        layout.addRow("Trình độ (EDUCATION):", self.cmbEducation)
+        layout.addRow("Trình độ học vấn:", self.cmbEducation)
         
         # MARRIAGE
         self.cmbMarriage = QComboBox()
         self.cmbMarriage.addItems([
-            "1 - Kết hôn",
-            "2 - Độc thân",
-            "3 - Khác"
+            "Kết hôn",
+            "Độc thân",
+            "Khác"
         ])
         self.cmbMarriage.setCurrentIndex(1)  # Default: Độc thân
-        layout.addRow("Hôn nhân (MARRIAGE):", self.cmbMarriage)
+        layout.addRow("Tình trạng hôn nhân:", self.cmbMarriage)
         
         # AGE
         self.spnAge = QDoubleSpinBox()
         self.spnAge.setRange(18, 100)
         self.spnAge.setValue(30)
         self.spnAge.setDecimals(0)
-        layout.addRow("Tuổi (AGE):", self.spnAge)
+        layout.addRow("Tuổi:", self.spnAge)
         
         group.setLayout(layout)
         return group
     
     def create_payment_history_group(self) -> QGroupBox:
-        """Tạo GroupBox lịch sử thanh toán (PAY_0, PAY_2-12) - 12 tháng"""
-        group = QGroupBox("💳 LỊCH SỬ THANH TOÁN (12 tháng)")
+        """Tạo GroupBox lịch sử thanh toán với option 12/6 tháng"""
+        group = QGroupBox("💳 LỊCH SỬ THANH TOÁN")
         group.setStyleSheet("QGroupBox { font-weight: bold; }")
-        layout = QFormLayout()
+        main_layout = QVBoxLayout()
         
-        pay_options = [
-            "-2 - Không sử dụng",
-            "-1 - Trả đúng hạn",
-            "0 - Trả đúng hạn",
-            "1 - Trễ 1 tháng",
-            "2 - Trễ 2 tháng",
-            "3 - Trễ 3 tháng",
-            "4 - Trễ 4 tháng",
-            "5 - Trễ 5 tháng",
-            "6 - Trễ 6 tháng",
-            "7 - Trễ 7 tháng",
-            "8 - Trễ 8 tháng",
-            "9 - Trễ 9+ tháng"
+        # === Header: RadioButton + Random Button ===
+        header_layout = QHBoxLayout()
+        
+        # RadioButton: Chọn 12 hoặc 6 tháng
+        self.rbtn_12months = QRadioButton("12 tháng (Dataset đầy đủ)")
+        self.rbtn_6months = QRadioButton("6 tháng (Dataset rút gọn)")
+        self.rbtn_12months.setChecked(True)
+        
+        self.period_group = QButtonGroup()
+        self.period_group.addButton(self.rbtn_12months)
+        self.period_group.addButton(self.rbtn_6months)
+        self.period_group.buttonClicked.connect(self.on_period_changed)
+        
+        header_layout.addWidget(self.rbtn_12months)
+        header_layout.addWidget(self.rbtn_6months)
+        header_layout.addStretch()
+        
+        # Random Button
+        self.btnRandomPayments = QPushButton("🎲 Random ngẫu nhiên")
+        self.btnRandomPayments.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        self.btnRandomPayments.clicked.connect(self.random_payment_history)
+        self.btnRandomPayments.setToolTip("Tự động điền giá trị ngẫu nhiên hợp lý cho lịch sử thanh toán")
+        header_layout.addWidget(self.btnRandomPayments)
+        
+        main_layout.addLayout(header_layout)
+        
+        # === Form Layout cho payment fields ===
+        form_layout = QFormLayout()
+        
+        self.pay_options = [
+            "Không sử dụng",
+            "Trả đúng hạn",
+            "Trễ 1 tháng",
+            "Trễ 2 tháng",
+            "Trễ 3 tháng",
+            "Trễ 4 tháng",
+            "Trễ 5 tháng",
+            "Trễ 6 tháng",
+            "Trễ 7 tháng",
+            "Trễ 8 tháng",
+            "Trễ 9+ tháng"
         ]
         
         self.pay_combos = {}
         
-        # 12 tháng: PAY_0 (tháng 12), PAY_2 (tháng 11), ..., PAY_12 (tháng 1)
-        month_labels = [
-            ('PAY_0', 'Tháng 12'),
+        # 12 tháng (gần đến xa): Tháng 12 (PAY_0), 11 (PAY_2), ..., 1 (PAY_12)
+        self.month_mapping_12 = [
+            ('PAY_0', 'Tháng 12 (gần nhất)'),
             ('PAY_2', 'Tháng 11'),
             ('PAY_3', 'Tháng 10'),
             ('PAY_4', 'Tháng 9'),
@@ -199,49 +318,176 @@ class PredictionTabWidget(QWidget):
             ('PAY_9', 'Tháng 4'),
             ('PAY_10', 'Tháng 3'),
             ('PAY_11', 'Tháng 2'),
-            ('PAY_12', 'Tháng 1')
+            ('PAY_12', 'Tháng 1 (xa nhất)')
         ]
         
-        for pay_field, month_label in month_labels:
+        for pay_field, month_label in self.month_mapping_12:
             cmb = QComboBox()
-            cmb.addItems(pay_options)
-            cmb.setCurrentIndex(2)  # Default: "0 - Trả đúng hạn"
-            layout.addRow(f"{pay_field} ({month_label}):", cmb)
+            cmb.addItems(self.pay_options)
+            cmb.setCurrentIndex(1)  # Default: "Trả đúng hạn"
+            cmb.setToolTip(f"Trạng thái thanh toán {month_label.lower()}")
+            form_layout.addRow(f"{month_label}:", cmb)
             self.pay_combos[pay_field] = cmb
         
-        group.setLayout(layout)
+        main_layout.addLayout(form_layout)
+        group.setLayout(main_layout)
         return group
     
+    def on_period_changed(self):
+        """Xử lý khi user chuyển đổi giữa 12/6 tháng"""
+        is_12months = self.rbtn_12months.isChecked()
+        
+        # Ẩn/hiện các tháng 7-12
+        months_to_toggle = ['PAY_7', 'PAY_8', 'PAY_9', 'PAY_10', 'PAY_11', 'PAY_12']
+        
+        for pay_field in months_to_toggle:
+            combo = self.pay_combos.get(pay_field)
+            if combo:
+                combo.setVisible(is_12months)
+                # Ẩn label tương ứng
+                for i in range(combo.parent().layout().count()):
+                    item = combo.parent().layout().itemAt(i)
+                    if item and item.widget() == combo:
+                        # Tìm label tương ứng (là widget trước combo)
+                        if i > 0:
+                            label_item = combo.parent().layout().itemAt(i - 1)
+                            if label_item and label_item.widget():
+                                label_item.widget().setVisible(is_12months)
+        
+        # Tương tự cho billing details
+        if hasattr(self, 'bill_amts') and hasattr(self, 'pay_amts'):
+            for i in range(6, 12):  # Index 6-11 tương ứng tháng 7-12
+                self.bill_amts[i].setVisible(is_12months)
+                self.pay_amts[i].setVisible(is_12months)
+                # Ẩn labels
+                for widget in [self.bill_amts[i], self.pay_amts[i]]:
+                    for j in range(widget.parent().layout().count()):
+                        item = widget.parent().layout().itemAt(j)
+                        if item and item.widget() == widget:
+                            if j > 0:
+                                label_item = widget.parent().layout().itemAt(j - 1)
+                                if label_item and label_item.widget():
+                                    label_item.widget().setVisible(is_12months)
+    
+    def random_payment_history(self):
+        """Tự động điền random hợp lý cho lịch sử thanh toán"""
+        # Random với logic: càng về trước càng ít khả năng trễ nhiều
+        for i, (pay_field, _) in enumerate(self.month_mapping_12):
+            combo = self.pay_combos[pay_field]
+            
+            # Tháng gần: 70% trả đúng hạn, 20% trễ 1-3 tháng, 10% trễ nhiều
+            # Tháng xa: 80% trả đúng hạn, 15% trễ 1-2 tháng, 5% trễ nhiều
+            if i < 3:  # 3 tháng gần nhất
+                weights = [5, 50, 20, 10, 8, 3, 2, 1, 0.5, 0.3, 0.2]
+            elif i < 6:  # Tháng 7-10
+                weights = [5, 60, 15, 10, 5, 2, 1, 1, 0.5, 0.3, 0.2]
+            else:  # Tháng 1-6
+                weights = [5, 70, 12, 7, 3, 1, 1, 0.5, 0.3, 0.1, 0.1]
+            
+            selected_index = random.choices(range(len(self.pay_options)), weights=weights)[0]
+            combo.setCurrentIndex(selected_index)
+    
     def create_billing_details_group(self) -> QGroupBox:
-        """Tạo GroupBox chi tiết sao kê (BILL_AMT và PAY_AMT) - 12 tháng"""
-        group = QGroupBox("📊 CHI TIẾT SAO KÊ (12 tháng)")
-        layout = QFormLayout()
+        """Tạo GroupBox chi tiết sao kê với random button"""
+        group = QGroupBox("📊 CHI TIẾT SAO KÊ")
+        main_layout = QVBoxLayout()
+        
+        # === Header: Random Button ===
+        header_layout = QHBoxLayout()
+        header_layout.addStretch()
+        
+        self.btnRandomBilling = QPushButton("🎲 Random ngẫu nhiên")
+        self.btnRandomBilling.setStyleSheet("""
+            QPushButton {
+                background-color: #e67e22;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d35400;
+            }
+        """)
+        self.btnRandomBilling.clicked.connect(self.random_billing_details)
+        self.btnRandomBilling.setToolTip("Tự động điền giá trị ngẫu nhiên hợp lý cho số dư và thanh toán")
+        header_layout.addWidget(self.btnRandomBilling)
+        
+        main_layout.addLayout(header_layout)
+        
+        # === Form Layout ===
+        form_layout = QFormLayout()
         
         self.bill_amts = []
         self.pay_amts = []
         
-        # 12 tháng: BILL_AMT1 (tháng 12), ..., BILL_AMT12 (tháng 1)
+        # 12 tháng: từ gần đến xa (Tháng 12 → 1)
+        self.bill_labels_vnd = []
+        self.pay_labels_vnd = []
+        
         for i in range(1, 13):
-            month_label = 13 - i  # Tháng 12, 11, 10, ..., 1
+            month_num = 13 - i  # Tháng 12, 11, 10, ..., 1
+            month_label = f"Tháng {month_num}"
+            if month_num == 12:
+                month_label += " (gần nhất)"
+            elif month_num == 1:
+                month_label += " (xa nhất)"
             
-            # BILL_AMT
+            # BILL_AMT - Số dư sao kê
+            bill_container = QVBoxLayout()
             spn_bill = QDoubleSpinBox()
             spn_bill.setRange(-1000000, 10000000)
             spn_bill.setValue(0)
-            spn_bill.setSuffix(" NT$")
-            layout.addRow(f"Số dư sao kê tháng {month_label} (BILL_AMT{i}):", spn_bill)
-            self.bill_amts.append(spn_bill)
+            spn_bill.setToolTip(f"Số dư sao kê {month_label.lower()} (1 NT$ = 800 VND)")
+            spn_bill.valueChanged.connect(lambda val, idx=i-1: self.update_bill_vnd_label(idx, val))
+            bill_container.addWidget(spn_bill)
             
-            # PAY_AMT
+            lbl_bill_vnd = QLabel()
+            lbl_bill_vnd.setStyleSheet("color: #7f8c8d; font-style: italic; font-size: 10px;")
+            bill_container.addWidget(lbl_bill_vnd)
+            
+            form_layout.addRow(f"Số dư {month_label}:", bill_container)
+            self.bill_amts.append(spn_bill)
+            self.bill_labels_vnd.append(lbl_bill_vnd)
+            self.update_bill_vnd_label(i-1, 0)
+            
+            # PAY_AMT - Số tiền đã thanh toán
+            pay_container = QVBoxLayout()
             spn_pay = QDoubleSpinBox()
             spn_pay.setRange(0, 10000000)
             spn_pay.setValue(0)
-            spn_pay.setSuffix(" NT$")
-            layout.addRow(f"Số tiền thanh toán tháng {month_label} (PAY_AMT{i}):", spn_pay)
+            spn_pay.setToolTip(f"Số tiền đã thanh toán {month_label.lower()} (1 NT$ = 800 VND)")
+            spn_pay.valueChanged.connect(lambda val, idx=i-1: self.update_pay_vnd_label(idx, val))
+            pay_container.addWidget(spn_pay)
+            
+            lbl_pay_vnd = QLabel()
+            lbl_pay_vnd.setStyleSheet("color: #7f8c8d; font-style: italic; font-size: 10px;")
+            pay_container.addWidget(lbl_pay_vnd)
+            
+            form_layout.addRow(f"Thanh toán {month_label}:", pay_container)
             self.pay_amts.append(spn_pay)
+            self.pay_labels_vnd.append(lbl_pay_vnd)
+            self.update_pay_vnd_label(i-1, 0)
         
-        group.setLayout(layout)
+        main_layout.addLayout(form_layout)
+        group.setLayout(main_layout)
         return group
+    
+    def random_billing_details(self):
+        """Tự động điền random hợp lý cho billing details"""
+        limit_bal = self.spnLimitBal.value()
+        
+        for i in range(12):
+            # Bill amount: 0-80% hạn mức
+            bill_amt = random.randint(0, int(limit_bal * 0.8))
+            self.bill_amts[i].setValue(bill_amt)
+            
+            # Pay amount: 5-100% của bill amount
+            if bill_amt > 0:
+                pay_amt = random.randint(int(bill_amt * 0.05), bill_amt)
+                self.pay_amts[i].setValue(pay_amt)
+            else:
+                self.pay_amts[i].setValue(0)
     
     def create_result_group(self) -> QGroupBox:
         """Tạo GroupBox hiển thị kết quả dự báo"""
@@ -272,61 +518,90 @@ class PredictionTabWidget(QWidget):
         return group
     
     def collect_input(self) -> dict:
-        """Thu thập input từ form thành dictionary (41 fields)"""
-        # Parse PAY values
+        """Thu thập input từ form thành dictionary (41 fields) - ĐẢM BẢO ĐÚNG THỨ TỰ"""
+        # Parse PAY values (tiếng Việt thuần)
         def parse_pay_value(combo_text):
-            """Parse '-1 - Trả đúng hạn' -> -1"""
-            return int(combo_text.split(' - ')[0])
+            """Parse 'Trả đúng hạn' -> 0, 'Trễ 3 tháng' -> 3, 'Không sử dụng' -> -2"""
+            pay_map = {
+                "Không sử dụng": -2,
+                "Trả đúng hạn": 0,
+                "Trễ 1 tháng": 1,
+                "Trễ 2 tháng": 2,
+                "Trễ 3 tháng": 3,
+                "Trễ 4 tháng": 4,
+                "Trễ 5 tháng": 5,
+                "Trễ 6 tháng": 6,
+                "Trễ 7 tháng": 7,
+                "Trễ 8 tháng": 8,
+                "Trễ 9+ tháng": 9
+            }
+            return pay_map.get(combo_text, 0)
         
-        input_dict = {
-            'LIMIT_BAL': self.spnLimitBal.value(),
-            'SEX': int(self.cmbSex.currentText().split(' - ')[0]),
-            'EDUCATION': int(self.cmbEducation.currentText().split(' - ')[0]),
-            'MARRIAGE': int(self.cmbMarriage.currentText().split(' - ')[0]),
-            'AGE': int(self.spnAge.value()),
-            
-            # Payment history - 12 months
-            'PAY_0': parse_pay_value(self.pay_combos['PAY_0'].currentText()),
-            'PAY_2': parse_pay_value(self.pay_combos['PAY_2'].currentText()),
-            'PAY_3': parse_pay_value(self.pay_combos['PAY_3'].currentText()),
-            'PAY_4': parse_pay_value(self.pay_combos['PAY_4'].currentText()),
-            'PAY_5': parse_pay_value(self.pay_combos['PAY_5'].currentText()),
-            'PAY_6': parse_pay_value(self.pay_combos['PAY_6'].currentText()),
-            'PAY_7': parse_pay_value(self.pay_combos['PAY_7'].currentText()),
-            'PAY_8': parse_pay_value(self.pay_combos['PAY_8'].currentText()),
-            'PAY_9': parse_pay_value(self.pay_combos['PAY_9'].currentText()),
-            'PAY_10': parse_pay_value(self.pay_combos['PAY_10'].currentText()),
-            'PAY_11': parse_pay_value(self.pay_combos['PAY_11'].currentText()),
-            'PAY_12': parse_pay_value(self.pay_combos['PAY_12'].currentText()),
-            
-            # Bill amounts - 12 months
-            'BILL_AMT1': self.bill_amts[0].value(),
-            'BILL_AMT2': self.bill_amts[1].value(),
-            'BILL_AMT3': self.bill_amts[2].value(),
-            'BILL_AMT4': self.bill_amts[3].value(),
-            'BILL_AMT5': self.bill_amts[4].value(),
-            'BILL_AMT6': self.bill_amts[5].value(),
-            'BILL_AMT7': self.bill_amts[6].value(),
-            'BILL_AMT8': self.bill_amts[7].value(),
-            'BILL_AMT9': self.bill_amts[8].value(),
-            'BILL_AMT10': self.bill_amts[9].value(),
-            'BILL_AMT11': self.bill_amts[10].value(),
-            'BILL_AMT12': self.bill_amts[11].value(),
-            
-            # Payment amounts - 12 months
-            'PAY_AMT1': self.pay_amts[0].value(),
-            'PAY_AMT2': self.pay_amts[1].value(),
-            'PAY_AMT3': self.pay_amts[2].value(),
-            'PAY_AMT4': self.pay_amts[3].value(),
-            'PAY_AMT5': self.pay_amts[4].value(),
-            'PAY_AMT6': self.pay_amts[5].value(),
-            'PAY_AMT7': self.pay_amts[6].value(),
-            'PAY_AMT8': self.pay_amts[7].value(),
-            'PAY_AMT9': self.pay_amts[8].value(),
-            'PAY_AMT10': self.pay_amts[9].value(),
-            'PAY_AMT11': self.pay_amts[10].value(),
-            'PAY_AMT12': self.pay_amts[11].value(),
-        }
+        # Parse SEX, EDUCATION, MARRIAGE
+        sex_map = {"Nam": 1, "Nữ": 2}
+        edu_map = {"Cao học": 1, "Đại học": 2, "Trung học": 3, "Khác": 4}
+        mar_map = {"Kết hôn": 1, "Độc thân": 2, "Khác": 3}
+        
+        # Tạo dict theo ĐÚNG THỨ TỰ model train (FEATURE_NAMES trong preprocess.py)
+        # 'LIMIT_BAL', 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE',
+        # 'PAY_0', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'PAY_6', 'PAY_7', 'PAY_8', 'PAY_9', 'PAY_10', 'PAY_11', 'PAY_12',
+        # 'BILL_AMT1', 'BILL_AMT2', ..., 'BILL_AMT12',
+        # 'PAY_AMT1', 'PAY_AMT2', ..., 'PAY_AMT12'
+        
+        is_12months = self.rbtn_12months.isChecked()
+        
+        input_dict = {}
+        
+        # 1. Thông tin cá nhân (5 fields)
+        input_dict['LIMIT_BAL'] = self.spnLimitBal.value()
+        input_dict['SEX'] = sex_map.get(self.cmbSex.currentText(), 1)
+        input_dict['EDUCATION'] = edu_map.get(self.cmbEducation.currentText(), 2)
+        input_dict['MARRIAGE'] = mar_map.get(self.cmbMarriage.currentText(), 2)
+        input_dict['AGE'] = int(self.spnAge.value())
+        
+        # 2. Payment history - TẤT CẢ 12 tháng (PAY_0, PAY_2-12)
+        input_dict['PAY_0'] = parse_pay_value(self.pay_combos['PAY_0'].currentText())
+        input_dict['PAY_2'] = parse_pay_value(self.pay_combos['PAY_2'].currentText())
+        input_dict['PAY_3'] = parse_pay_value(self.pay_combos['PAY_3'].currentText())
+        input_dict['PAY_4'] = parse_pay_value(self.pay_combos['PAY_4'].currentText())
+        input_dict['PAY_5'] = parse_pay_value(self.pay_combos['PAY_5'].currentText())
+        input_dict['PAY_6'] = parse_pay_value(self.pay_combos['PAY_6'].currentText())
+        
+        # PAY_7-12 (tùy chọn hoặc điền 0)
+        input_dict['PAY_7'] = parse_pay_value(self.pay_combos['PAY_7'].currentText()) if is_12months else 0
+        input_dict['PAY_8'] = parse_pay_value(self.pay_combos['PAY_8'].currentText()) if is_12months else 0
+        input_dict['PAY_9'] = parse_pay_value(self.pay_combos['PAY_9'].currentText()) if is_12months else 0
+        input_dict['PAY_10'] = parse_pay_value(self.pay_combos['PAY_10'].currentText()) if is_12months else 0
+        input_dict['PAY_11'] = parse_pay_value(self.pay_combos['PAY_11'].currentText()) if is_12months else 0
+        input_dict['PAY_12'] = parse_pay_value(self.pay_combos['PAY_12'].currentText()) if is_12months else 0
+        
+        # 3. Bill amounts - TẤT CẢ 12 tháng (BILL_AMT1-12)
+        input_dict['BILL_AMT1'] = self.bill_amts[0].value()
+        input_dict['BILL_AMT2'] = self.bill_amts[1].value()
+        input_dict['BILL_AMT3'] = self.bill_amts[2].value()
+        input_dict['BILL_AMT4'] = self.bill_amts[3].value()
+        input_dict['BILL_AMT5'] = self.bill_amts[4].value()
+        input_dict['BILL_AMT6'] = self.bill_amts[5].value()
+        input_dict['BILL_AMT7'] = self.bill_amts[6].value() if is_12months else 0.0
+        input_dict['BILL_AMT8'] = self.bill_amts[7].value() if is_12months else 0.0
+        input_dict['BILL_AMT9'] = self.bill_amts[8].value() if is_12months else 0.0
+        input_dict['BILL_AMT10'] = self.bill_amts[9].value() if is_12months else 0.0
+        input_dict['BILL_AMT11'] = self.bill_amts[10].value() if is_12months else 0.0
+        input_dict['BILL_AMT12'] = self.bill_amts[11].value() if is_12months else 0.0
+        
+        # 4. Payment amounts - TẤT CẢ 12 tháng (PAY_AMT1-12)
+        input_dict['PAY_AMT1'] = self.pay_amts[0].value()
+        input_dict['PAY_AMT2'] = self.pay_amts[1].value()
+        input_dict['PAY_AMT3'] = self.pay_amts[2].value()
+        input_dict['PAY_AMT4'] = self.pay_amts[3].value()
+        input_dict['PAY_AMT5'] = self.pay_amts[4].value()
+        input_dict['PAY_AMT6'] = self.pay_amts[5].value()
+        input_dict['PAY_AMT7'] = self.pay_amts[6].value() if is_12months else 0.0
+        input_dict['PAY_AMT8'] = self.pay_amts[7].value() if is_12months else 0.0
+        input_dict['PAY_AMT9'] = self.pay_amts[8].value() if is_12months else 0.0
+        input_dict['PAY_AMT10'] = self.pay_amts[9].value() if is_12months else 0.0
+        input_dict['PAY_AMT11'] = self.pay_amts[10].value() if is_12months else 0.0
+        input_dict['PAY_AMT12'] = self.pay_amts[11].value() if is_12months else 0.0
         
         return input_dict
     
@@ -339,6 +614,26 @@ class PredictionTabWidget(QWidget):
         try:
             # Collect input
             input_dict = self.collect_input()
+            
+            # Debug: In ra input để kiểm tra
+            print(f"\n{'='*60}")
+            print(f"🔍 DEBUG INPUT:")
+            print(f"   Dataset mode: {'12 tháng' if self.rbtn_12months.isChecked() else '6 tháng'}")
+            print(f"   Total fields: {len(input_dict)}")
+            print(f"   LIMIT_BAL: {input_dict['LIMIT_BAL']}")
+            print(f"   PAY_0 (T12): {input_dict['PAY_0']}, PAY_2 (T11): {input_dict['PAY_2']}")
+            print(f"   PAY_6 (T7): {input_dict['PAY_6']}, PAY_7 (T6): {input_dict['PAY_7']}")
+            print(f"{'='*60}\n")
+            
+            # Admin: Chọn model từ dropdown
+            if self.user.is_admin() and self.model_selector:
+                selected_model = self.model_selector.currentText().split()[0]  # Get model name
+                print(f"Admin selected model: {selected_model}")
+                try:
+                    self.ml_service = MLService(model_name=selected_model)
+                except Exception as e:
+                    QMessageBox.warning(self, "Lỗi", f"Không thể load model {selected_model}: {e}")
+                    return
             
             # Predict
             result = self.ml_service.predict_default_risk(input_dict)
@@ -412,9 +707,221 @@ class PredictionTabWidget(QWidget):
         self.spnAge.setValue(30)
         
         for combo in self.pay_combos.values():
-            combo.setCurrentIndex(2)
+            combo.setCurrentIndex(1)  # "Trả đúng hạn"
         
-        for spn in self.bill_amts + self.pay_amts:
+        for i, spn in enumerate(self.bill_amts):
+            spn.setValue(0)
+        
+        for i, spn in enumerate(self.pay_amts):
             spn.setValue(0)
         
         self.result_group.setVisible(False)
+    
+    def compare_all_models(self):
+        """So sánh 8 models cùng lúc (Admin only)"""
+        if not self.user.is_admin():
+            return
+        
+        try:
+            # Collect input
+            input_dict = self.collect_input()
+            
+            models = ['XGBoost', 'LightGBM', 'CatBoost', 'RandomForest', 
+                      'Logistic', 'NeuralNet', 'Voting', 'Stacking']
+            
+            results = {}
+            errors = []
+            
+            # Progress dialog
+            progress = QMessageBox(self)
+            progress.setWindowTitle("Đang so sánh models...")
+            progress.setText("Vui lòng đợi trong khi hệ thống chạy 8 models")
+            progress.setStandardButtons(QMessageBox.StandardButton.NoButton)
+            progress.show()
+            
+            for model_name in models:
+                try:
+                    service = MLService(model_name=model_name)
+                    result = service.predict_default_risk(input_dict)
+                    results[model_name] = result
+                    print(f"✓ {model_name}: {result.probability:.2%}")
+                except Exception as e:
+                    errors.append(f"{model_name}: {str(e)}")
+                    results[model_name] = None
+                    print(f"✗ {model_name}: {e}")
+            
+            progress.close()
+            
+            # Hiển thị kết quả
+            self.show_comparison_results(results, errors)
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi", f"Lỗi khi so sánh models: {str(e)}")
+    
+    def show_comparison_results(self, results: dict, errors: list):
+        """Hiển thị kết quả so sánh trong dialog"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("📊 So Sánh 8 Models")
+        dialog.setMinimumSize(800, 500)
+        
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("KẾT QUẢ SO SÁNH 8 MODELS")
+        title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        
+        # Table
+        table = QTableWidget()
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(["Model", "Xác suất vỡ nợ", "Nhãn rủi ro", "Trạng thái"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        
+        # Sắp xếp theo xác suất giảm dần
+        sorted_results = sorted(
+            [(name, res) for name, res in results.items() if res is not None],
+            key=lambda x: x[1].probability,
+            reverse=True
+        )
+        
+        table.setRowCount(len(results))
+        
+        row = 0
+        for model_name, result in sorted_results:
+            table.setItem(row, 0, QTableWidgetItem(model_name))
+            table.setItem(row, 1, QTableWidgetItem(f"{result.probability:.2%}"))
+            table.setItem(row, 2, QTableWidgetItem(result.get_risk_label()))
+            table.setItem(row, 3, QTableWidgetItem("✅ OK"))
+            
+            # Màu sắc theo risk
+            if result.is_high_risk():
+                for col in range(4):
+                    table.item(row, col).setBackground(QColor(255, 200, 200))
+            else:
+                for col in range(4):
+                    table.item(row, col).setBackground(QColor(200, 255, 200))
+            
+            row += 1
+        
+        # Thêm models bị lỗi
+        for error in errors:
+            model_name = error.split(':')[0]
+            table.setItem(row, 0, QTableWidgetItem(model_name))
+            table.setItem(row, 1, QTableWidgetItem("-"))
+            table.setItem(row, 2, QTableWidgetItem("-"))
+            table.setItem(row, 3, QTableWidgetItem("❌ Error"))
+            for col in range(4):
+                table.item(row, col).setBackground(QColor(220, 220, 220))
+            row += 1
+        
+        layout.addWidget(table)
+        
+        # Close button
+        close_btn = QPushButton("Đóng")
+        close_btn.clicked.connect(dialog.close)
+        layout.addWidget(close_btn)
+        
+        dialog.setLayout(layout)
+        dialog.exec()
+    
+    def update_limit_bal_label(self, value):
+        """Cập nhật label hiển thị VND cho LIMIT_BAL"""
+        vnd_value = value * 800
+        self.lblLimitBalVND.setText(f"{value:,.0f} NT$ = {vnd_value:,.0f} VND")
+    
+    def update_bill_vnd_label(self, index, value):
+        """Cập nhật label hiển thị VND cho BILL_AMT"""
+        vnd_value = value * 800
+        self.bill_labels_vnd[index].setText(f"{value:,.0f} NT$ = {vnd_value:,.0f} VND")
+    
+    def update_pay_vnd_label(self, index, value):
+        """Cập nhật label hiển thị VND cho PAY_AMT"""
+        vnd_value = value * 800
+        self.pay_labels_vnd[index].setText(f"{value:,.0f} NT$ = {vnd_value:,.0f} VND")
+    
+    def search_customer(self):
+        """Tìm kiếm khách hàng theo CMND và tự động điền form"""
+        cmnd = self.txtCustomerID.text().strip()
+        
+        if not cmnd:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng nhập số CMND/CCCD để tìm kiếm")
+            return
+        
+        try:
+            # Tìm kiếm khách hàng
+            customer = self.query_service.get_customer_by_cmnd(cmnd)
+            
+            if not customer:
+                QMessageBox.information(self, "Không tìm thấy", 
+                                        f"Không tìm thấy khách hàng với CMND: {cmnd}")
+                return
+            
+            # Điền thông tin vào form
+            self.load_customer_data(customer)
+            
+            QMessageBox.information(self, "Thành công", 
+                                    f"Đã tải thông tin khách hàng: {customer.customer_name}")
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi", f"Lỗi khi tìm kiếm khách hàng: {str(e)}")
+    
+    def load_customer_data(self, customer: Customer):
+        """Tải dữ liệu khách hàng vào form (41 fields)"""
+        # Thông tin cá nhân
+        self.txtCustomerName.setText(customer.customer_name)
+        self.txtCustomerID.setText(customer.customer_id_card)
+        self.spnLimitBal.setValue(customer.LIMIT_BAL)
+        
+        # SEX: 1=Male, 2=Female
+        self.cmbSex.setCurrentIndex(0 if customer.SEX == 1 else 1)
+        
+        # EDUCATION: 1=Cao học, 2=Đại học, 3=Trung học, 4=Khác
+        education_map = {1: 0, 2: 1, 3: 2, 4: 3}
+        self.cmbEducation.setCurrentIndex(education_map.get(customer.EDUCATION, 3))
+        
+        # MARRIAGE: 1=Kết hôn, 2=Độc thân, 3=Khác
+        marriage_map = {1: 0, 2: 1, 3: 2}
+        self.cmbMarriage.setCurrentIndex(marriage_map.get(customer.MARRIAGE, 2))
+        
+        self.spnAge.setValue(customer.AGE)
+        
+        # Lịch sử thanh toán (PAY_0, PAY_2-12)
+        pay_values = [
+            customer.PAY_0, customer.PAY_2, customer.PAY_3, customer.PAY_4,
+            customer.PAY_5, customer.PAY_6, customer.PAY_7, customer.PAY_8,
+            customer.PAY_9, customer.PAY_10, customer.PAY_11, customer.PAY_12
+        ]
+        
+        for i, (pay_field, _) in enumerate(self.month_mapping_12):
+            # Convert PAY value to combo index
+            pay_val = pay_values[i]
+            if pay_val == -2:
+                index = 0  # "Không sử dụng"
+            elif pay_val == -1:
+                index = 1  # "Trả đúng hạn"
+            elif 0 <= pay_val <= 9:
+                index = min(pay_val + 2, 10)  # "Trễ X tháng"
+            else:
+                index = 10  # "Trễ 9+ tháng"
+            
+            self.pay_combos[pay_field].setCurrentIndex(index)
+        
+        # Chi tiết sao kê (BILL_AMT1-12, PAY_AMT1-12)
+        bill_values = [
+            customer.BILL_AMT1, customer.BILL_AMT2, customer.BILL_AMT3,
+            customer.BILL_AMT4, customer.BILL_AMT5, customer.BILL_AMT6,
+            customer.BILL_AMT7, customer.BILL_AMT8, customer.BILL_AMT9,
+            customer.BILL_AMT10, customer.BILL_AMT11, customer.BILL_AMT12
+        ]
+        
+        pay_amt_values = [
+            customer.PAY_AMT1, customer.PAY_AMT2, customer.PAY_AMT3,
+            customer.PAY_AMT4, customer.PAY_AMT5, customer.PAY_AMT6,
+            customer.PAY_AMT7, customer.PAY_AMT8, customer.PAY_AMT9,
+            customer.PAY_AMT10, customer.PAY_AMT11, customer.PAY_AMT12
+        ]
+        
+        for i in range(12):
+            self.bill_amts[i].setValue(bill_values[i])
+            self.pay_amts[i].setValue(pay_amt_values[i])

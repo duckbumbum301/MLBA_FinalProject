@@ -75,7 +75,7 @@ class MainWindowEx(QMainWindow):
         self.ui.tabWidget.addTab(self.prediction_widget, "📊 Dự Báo Rủi Ro")
         
         # Tab 2: Dashboard (All users - limited for User role)
-        self.dashboard_widget = DashboardTabWidget()
+        self.dashboard_widget = DashboardTabWidget(self.user)
         self.ui.tabWidget.addTab(self.dashboard_widget, "📈 Dashboard")
         
         # Tab 3: AI Trợ Lý (All users)

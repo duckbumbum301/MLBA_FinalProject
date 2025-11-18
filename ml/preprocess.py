@@ -87,9 +87,10 @@ def preprocess_input(input_dict: Dict) -> pd.DataFrame:
     # Clean
     cleaned = clean_input(input_dict)
     
-    # Tạo DataFrame với đúng thứ tự cột
-    data = {field: [cleaned[field]] for field in FEATURE_NAMES}
-    df = pd.DataFrame(data)
+    # Tạo DataFrame với đúng thứ tự cột - CÁCH ĐÚNG: dùng list của list
+    # Đảm bảo 100% đúng thứ tự FEATURE_NAMES
+    row_data = [[cleaned[field] for field in FEATURE_NAMES]]
+    df = pd.DataFrame(row_data, columns=FEATURE_NAMES)
     
     return df
 

@@ -10,9 +10,12 @@ from datetime import datetime
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
-except ImportError:
+except (ImportError, TypeError) as e:
     GEMINI_AVAILABLE = False
-    print("⚠ google-generativeai not installed. Install with: pip install google-generativeai")
+    if isinstance(e, TypeError):
+        print("⚠ google-generativeai không tương thích với Python 3.14. Hãy dùng Python 3.11-3.12")
+    else:
+        print("⚠ google-generativeai not installed. Install with: pip install google-generativeai")
 
 from config.gemini_config import GeminiConfig
 from database.connector import DatabaseConnector

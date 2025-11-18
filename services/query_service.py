@@ -228,3 +228,79 @@ class QueryService:
         )
         
         return customer
+    
+    def get_customer_by_cmnd(self, cmnd: str) -> Optional[Customer]:
+        """
+        Lấy thông tin khách hàng theo số CMND (41 fields)
+        
+        Args:
+            cmnd: Số CMND khách hàng
+        
+        Returns:
+            Instance Customer hoặc None nếu không tìm thấy
+        """
+        query = """
+            SELECT 
+                customer_name, customer_id_card,
+                LIMIT_BAL, SEX, EDUCATION, MARRIAGE, AGE,
+                PAY_0, PAY_2, PAY_3, PAY_4, PAY_5, PAY_6, PAY_7, PAY_8, PAY_9, PAY_10, PAY_11, PAY_12,
+                BILL_AMT1, BILL_AMT2, BILL_AMT3, BILL_AMT4, BILL_AMT5, BILL_AMT6,
+                BILL_AMT7, BILL_AMT8, BILL_AMT9, BILL_AMT10, BILL_AMT11, BILL_AMT12,
+                PAY_AMT1, PAY_AMT2, PAY_AMT3, PAY_AMT4, PAY_AMT5, PAY_AMT6,
+                PAY_AMT7, PAY_AMT8, PAY_AMT9, PAY_AMT10, PAY_AMT11, PAY_AMT12
+            FROM customers
+            WHERE customer_id_card = %s
+        """
+        
+        result = self.db.fetch_one(query, (cmnd,))
+        
+        if not result:
+            return None
+        
+        customer = Customer(
+            customer_name=result[0],
+            customer_id_card=result[1],
+            LIMIT_BAL=float(result[2]),
+            SEX=result[3],
+            EDUCATION=result[4],
+            MARRIAGE=result[5],
+            AGE=result[6],
+            PAY_0=result[7],
+            PAY_2=result[8],
+            PAY_3=result[9],
+            PAY_4=result[10],
+            PAY_5=result[11],
+            PAY_6=result[12],
+            PAY_7=result[13],
+            PAY_8=result[14],
+            PAY_9=result[15],
+            PAY_10=result[16],
+            PAY_11=result[17],
+            PAY_12=result[18],
+            BILL_AMT1=float(result[19]),
+            BILL_AMT2=float(result[20]),
+            BILL_AMT3=float(result[21]),
+            BILL_AMT4=float(result[22]),
+            BILL_AMT5=float(result[23]),
+            BILL_AMT6=float(result[24]),
+            BILL_AMT7=float(result[25]),
+            BILL_AMT8=float(result[26]),
+            BILL_AMT9=float(result[27]),
+            BILL_AMT10=float(result[28]),
+            BILL_AMT11=float(result[29]),
+            BILL_AMT12=float(result[30]),
+            PAY_AMT1=float(result[31]),
+            PAY_AMT2=float(result[32]),
+            PAY_AMT3=float(result[33]),
+            PAY_AMT4=float(result[34]),
+            PAY_AMT5=float(result[35]),
+            PAY_AMT6=float(result[36]),
+            PAY_AMT7=float(result[37]),
+            PAY_AMT8=float(result[38]),
+            PAY_AMT9=float(result[39]),
+            PAY_AMT10=float(result[40]),
+            PAY_AMT11=float(result[41]),
+            PAY_AMT12=float(result[42])
+        )
+        
+        return customer

@@ -207,9 +207,16 @@ class AIAssistantWidget(QWidget):
         self.input_field.clear()
         
         try:
+            # Get context based on role
+            if self.user.is_admin():
+                context = self.get_admin_context()  # Full database access
+            else:
+                context = self.get_user_context()  # Only user's predictions
+            
             # Send to Gemini
             response = self.gemini_service.send_message(
                 message=message,
+                context=context,
                 context_type=self.context_selector.currentText()
             )
             
@@ -280,3 +287,55 @@ class AIAssistantWidget(QWidget):
             if self.gemini_service:
                 self.gemini_service.clear_chat_history()
             self.append_message("✅ Hệ thống", "Lịch sử chat đã được xóa", "#27ae60")
+    
+    def get_user_context(self):
+        """Get context chỉ từ predictions của user này (User role)"""
+        try:
+            recent_predictions = self.db.fetch_all("""
+                SELECT p.*, c.customer_name, c.customer_id_card
+                FROM predictions_log p
+                LEFT JOIN customers c ON p.customer_id = c.id
+                WHERE p.user_id = %s
+                ORDER BY p.created_at DESC
+                LIMIT 10
+            """, (self.user.id,))
+            
+            return {
+                'user_predictions': recent_predictions,
+                'total_predictions': len(recent_predictions) if recent_predictions else 0,
+                'role': 'User'
+            }
+        except Exception as e:
+            print(f"⚠ Error getting user context: {e}")
+            return {'role': 'User', 'error': str(e)}
+    
+    def get_admin_context(self):
+        """Get context từ toàn bộ database (Admin role)"""
+        try:
+            # All recent predictions
+            all_predictions = self.db.fetch_all("""
+                SELECT p.*, c.customer_name, c.customer_id_card, u.username
+                FROM predictions_log p
+                LEFT JOIN customers c ON p.customer_id = c.id
+                LEFT JOIN user u ON p.user_id = u.id
+                ORDER BY p.created_at DESC
+                LIMIT 50
+            """)
+            
+            # System stats
+            stats = self.db.fetch_one("""
+                SELECT 
+                    COUNT(*) as total_predictions,
+                    SUM(CASE WHEN predicted_label = 1 THEN 1 ELSE 0 END) as high_risk_count,
+                    AVG(probability) as avg_probability
+                FROM predictions_log
+            """)
+            
+            return {
+                'all_predictions': all_predictions,
+                'system_stats': stats,
+                'role': 'Admin'
+            }
+        except Exception as e:
+            print(f"⚠ Error getting admin context: {e}")
+            return {'role': 'Admin', 'error': str(e)}

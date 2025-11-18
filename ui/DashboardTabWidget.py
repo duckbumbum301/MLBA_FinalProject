@@ -42,8 +42,9 @@ class DashboardTabWidget(QWidget):
     - Risk Distribution
     """
     
-    def __init__(self):
+    def __init__(self, user=None):
         super().__init__()
+        self.user = user
         self.eval_data = None
         self.setup_ui()
         self.load_and_plot_data()
