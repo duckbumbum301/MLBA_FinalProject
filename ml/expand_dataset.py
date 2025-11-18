@@ -139,7 +139,26 @@ def main():
     for col in sorted(new_cols):
         print(f"   - {col}")
     
-    # Save expanded data
+    # Insert new columns after ID
+    np.random.seed(42)
+    first_names = np.array([
+        'An','Binh','Chi','Duc','Huy','Khanh','Lam','Minh','Nam','Phong',
+        'Quang','Son','Tuan','Viet','Yen','Anh','Trang','Linh','Hoa','Ngoc'
+    ])
+    last_names = np.array([
+        'Nguyen','Tran','Le','Pham','Hoang','Huynh','Phan','Vu','Vo','Dang',
+        'Bui','Do','Ngo','Duong','Ly'
+    ])
+    n = len(df_expanded)
+    names = (
+        last_names[np.random.randint(0, len(last_names), size=n)] + ' ' +
+        first_names[np.random.randint(0, len(first_names), size=n)]
+    )
+    digits = np.array(list('0123456789'))
+    citizen_ids = [''.join(np.random.choice(digits, 12)) for _ in range(n)]
+    df_expanded.insert(1, 'FULL NAME', names)
+    df_expanded.insert(2, 'CITIZEN ID', citizen_ids)
+
     print(f"\n4. Saving expanded dataset to: {OUTPUT_FILE}")
     df_expanded.to_csv(OUTPUT_FILE, index=False)
     print(f"   ✓ Saved successfully!")

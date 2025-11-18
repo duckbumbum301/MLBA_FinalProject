@@ -78,7 +78,13 @@ def load_and_preprocess():
             df[c] = df[c].clip(-2, 9)
     
     # Separate features and target
-    X = df.drop(columns=[TARGET, ID_COL] if ID_COL in df.columns else [TARGET])
+    drop_cols = [TARGET]
+    if ID_COL in df.columns:
+        drop_cols.append(ID_COL)
+    for extra in ['FULL NAME', 'CITIZEN ID']:
+        if extra in df.columns:
+            drop_cols.append(extra)
+    X = df.drop(columns=drop_cols)
     y = df[TARGET].astype(int)
     
     print(f"✓ Features: {X.shape[1]} columns")
