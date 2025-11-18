@@ -1,3 +1,7 @@
+"""
+MainWindow - Credit Risk System main interface
+Features: Prediction, Dashboard, Reports, AI Assistant, Customer Management
+"""
 from PyQt6.QtWidgets import QMainWindow, QTabWidget
 import sys
 from pathlib import Path

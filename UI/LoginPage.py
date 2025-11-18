@@ -1,3 +1,7 @@
+"""
+LoginPage - Single entry login with database role validation
+Supports both User and Admin roles from database
+"""
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QSpacerItem, QSizePolicy
 from PyQt6.QtCore import Qt, pyqtSignal
 from pathlib import Path
