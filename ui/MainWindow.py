@@ -2,8 +2,8 @@
 MainWindow - Credit Risk System main interface
 Features: Prediction, Dashboard, Reports, AI Assistant, Customer Management
 """
-from PyQt6.QtWidgets import QMainWindow, QTabWidget, QMenuBar, QMessageBox, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel, QPushButton, QLineEdit, QDialog
-from PyQt6.QtCore import pyqtSignal, QSize
+from PyQt6.QtWidgets import QMainWindow, QTabWidget, QMenuBar, QMessageBox, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel, QPushButton, QLineEdit, QDialog, QTableWidget, QTableWidgetItem, QHeaderView
+from PyQt6.QtCore import pyqtSignal, QSize, QTimer, Qt
 from PyQt6.QtGui import QAction, QPixmap, QIcon
 import sys
 from pathlib import Path
@@ -14,6 +14,7 @@ try:
     from .PredictionTabWidget import PredictionTabWidget
     from .DashboardTabWidget import DashboardTabWidget
     from .ReportTab import ReportTab
+    from .UserReportTab import UserReportTab
     from .AIAssistantWidget import AIAssistantWidget
     from .SystemManagementTab import SystemManagementTab
 except Exception:
@@ -21,6 +22,7 @@ except Exception:
     from PredictionTabWidget import PredictionTabWidget
     from DashboardTabWidget import DashboardTabWidget
     from ReportTab import ReportTab
+    from UserReportTab import UserReportTab
     from AIAssistantWidget import AIAssistantWidget
     from SystemManagementTab import SystemManagementTab
 
@@ -90,10 +92,10 @@ class MainWindow(QMainWindow):
         
         self.prediction_tab = PredictionTabWidget(self.user, query_service)
         self.dashboard_tab = DashboardTabWidget(self.user, query_service)
-        self.report_tab = ReportTab(self.user)
+        self.report_tab = ReportTab(self.user) if self.user.is_admin() else UserReportTab(self.user)
         self._db_for_ai = db
         self.tab.addTab(self.prediction_tab, '📊 Dự Báo')
-        self.tab.addTab(self.dashboard_tab, '📈 Dashboard')
+        self.tab.addTab(self.dashboard_tab, '📈 Bảng Điều Khiển')
         self.tab.addTab(self.report_tab, '📋 Báo Cáo')
         if self.user.is_admin():
             self.sys_tab = SystemManagementTab()
@@ -131,12 +133,12 @@ class MainWindow(QMainWindow):
         # Top blue bar
         topbar = QFrame(); topbar.setObjectName('TopBar')
         tb = QHBoxLayout(topbar); tb.setContentsMargins(16,10,16,10)
-        title = QLabel('Credit Risk Management System'); title.setObjectName('Heading2')
+        title = QLabel('Hệ Thống Quản Lý Rủi Ro Tín Dụng'); title.setObjectName('Heading2')
         tb.addWidget(title)
         tb.addStretch()
         user_label = QLabel(f"{self.user.username} ({self.user.role})")
         tb.addWidget(user_label)
-        btnLogoutTop = QPushButton('Log out'); btnLogoutTop.setObjectName('Secondary')
+        btnLogoutTop = QPushButton('Đăng xuất'); btnLogoutTop.setObjectName('Secondary')
         btnLogoutTop.clicked.connect(self.handle_logout)
         tb.addWidget(btnLogoutTop)
 
@@ -153,9 +155,9 @@ class MainWindow(QMainWindow):
         brand = QLabel('NYTDT'); brand.setObjectName('Heading3')
         nb.addWidget(brand)
         nb.addSpacing(80)
-        self.btnNavPredict = QPushButton('Prediction'); self.btnNavPredict.setObjectName('NavItem'); self.btnNavPredict.setCheckable(True)
-        self.btnNavDashboard = QPushButton('Dashboard'); self.btnNavDashboard.setObjectName('NavItem'); self.btnNavDashboard.setCheckable(True)
-        self.btnNavReport = QPushButton('Reports'); self.btnNavReport.setObjectName('NavItem'); self.btnNavReport.setCheckable(True)
+        self.btnNavPredict = QPushButton('Dự Báo'); self.btnNavPredict.setObjectName('NavItem'); self.btnNavPredict.setCheckable(True)
+        self.btnNavDashboard = QPushButton('Bảng Điều Khiển'); self.btnNavDashboard.setObjectName('NavItem'); self.btnNavDashboard.setCheckable(True)
+        self.btnNavReport = QPushButton('Báo Cáo'); self.btnNavReport.setObjectName('NavItem'); self.btnNavReport.setCheckable(True)
         if self.user.is_admin():
             self.btnNavSys = QPushButton('Hệ Thống'); self.btnNavSys.setObjectName('NavItem'); self.btnNavSys.setCheckable(True)
             nav_buttons = [self.btnNavPredict, self.btnNavDashboard, self.btnNavReport, self.btnNavSys]
@@ -164,8 +166,19 @@ class MainWindow(QMainWindow):
         for b in nav_buttons:
             nb.addWidget(b)
         nb.addStretch()
-        search = QLineEdit(); search.setObjectName('SearchBox'); search.setPlaceholderText('Searching...')
+        self.btnNotify = QPushButton('🔔'); self.btnNotify.setObjectName('NotifyButton'); self.btnNotify.setCheckable(False)
+        self.btnNotify.setFixedSize(34,34)
+        self.btnNotify.clicked.connect(self.open_support_requests_popup)
+        self.btnNotify.setVisible(self.user.is_admin())
+        nb.addWidget(self.btnNotify)
+        search = QLineEdit(); search.setObjectName('SearchBox'); search.setPlaceholderText('Tìm kiếm...')
         nb.addWidget(search)
+        self.lblNotifyBadge = QLabel(''); self.lblNotifyBadge.setObjectName('NotifyBadge'); self.lblNotifyBadge.setParent(self.btnNotify)
+        self.lblNotifyBadge.setFixedSize(18,18)
+        try:
+            self.lblNotifyBadge.move(self.btnNotify.width()-14, 0)
+        except Exception:
+            pass
 
         container.addWidget(topbar)
         container.addWidget(navbar)
@@ -174,7 +187,7 @@ class MainWindow(QMainWindow):
         footer = QFrame(); footer.setObjectName('Footer')
         fl = QHBoxLayout(footer); fl.setContentsMargins(16,8,16,8)
         fl.addStretch()
-        txtLeft = QLabel('© Copyright 205 | Bản quyền thuộc sở hữu của')
+        txtLeft = QLabel('© Bản quyền 205 | Thuộc sở hữu của')
         brand = QLabel(' NYTDT')
         brand.setObjectName('FooterBrand')
         fl.addWidget(txtLeft)
@@ -205,6 +218,15 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+        try:
+            self._notifyTimer = QTimer(self)
+            self._notifyTimer.setInterval(5000)
+            self._notifyTimer.timeout.connect(self.update_notify_badge)
+            self._notifyTimer.start()
+            self.update_notify_badge()
+        except Exception:
+            pass
+
     def open_ai_popup(self):
         dlg = QDialog(self)
         dlg.setWindowTitle('AI Copilot')
@@ -212,6 +234,95 @@ class MainWindow(QMainWindow):
         aiw = AIAssistantWidget(self.user, self._db_for_ai)
         lay.addWidget(aiw)
         dlg.resize(900, 600)
+        dlg.exec()
+
+    def update_notify_badge(self):
+        try:
+            proj = Path(__file__).resolve().parents[1]
+            f = proj / 'outputs' / 'system' / 'forgot_requests.json'
+            cnt = 0
+            if f.exists():
+                import json
+                try:
+                    items = json.loads(f.read_text(encoding='utf-8'))
+                    cnt = len([i for i in items if str(i.get('status','')) == 'pending'])
+                except Exception:
+                    cnt = 0
+            self.lblNotifyBadge.setText(str(cnt))
+            self.lblNotifyBadge.setVisible(cnt > 0 and self.user.is_admin())
+            self.btnNotify.setVisible(self.user.is_admin())
+        except Exception:
+            try:
+                self.lblNotifyBadge.setVisible(False)
+            except Exception:
+                pass
+
+    def open_support_requests_popup(self):
+        try:
+            if not self.user.is_admin():
+                return
+        except Exception:
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle('Yêu cầu hỗ trợ')
+        dlg.setFixedSize(780, 420)
+        try:
+            dlg.setSizeGripEnabled(False)
+        except Exception:
+            pass
+        lay = QVBoxLayout(dlg); lay.setContentsMargins(16,16,16,16); lay.setSpacing(8)
+        title = QLabel('Yêu cầu hỗ trợ'); title.setObjectName('SectionTitle'); title.setAlignment(Qt.AlignmentFlag.AlignCenter); lay.addWidget(title)
+        table = QTableWidget(0,4); table.setHorizontalHeaderLabels(['Họ tên','Email','User','Thời điểm'])
+        try:
+            table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        except Exception:
+            pass
+        btns = QHBoxLayout(); btnRefresh = QPushButton('Refresh'); btnResolve = QPushButton('Mark Resolved')
+        btns.addWidget(btnRefresh); btns.addWidget(btnResolve)
+        lay.addWidget(table)
+        lay.addLayout(btns)
+        def load_items():
+            try:
+                proj = Path(__file__).resolve().parents[1]
+                f = proj / 'outputs' / 'system' / 'forgot_requests.json'
+                items = []
+                if f.exists():
+                    import json
+                    items = json.loads(f.read_text(encoding='utf-8'))
+                pending = [i for i in items if str(i.get('status','')) == 'pending']
+                table.setRowCount(len(pending))
+                for i, r in enumerate(pending):
+                    table.setItem(i,0,QTableWidgetItem(str(r.get('full_name',''))))
+                    table.setItem(i,1,QTableWidgetItem(str(r.get('email',''))))
+                    table.setItem(i,2,QTableWidgetItem(str(r.get('username',''))))
+                    table.setItem(i,3,QTableWidgetItem(str(r.get('ts',''))))
+            except Exception:
+                table.setRowCount(0)
+        def mark_resolved():
+            try:
+                row = table.currentRow()
+                if row < 0:
+                    return
+                email = table.item(row,1).text() if table.item(row,1) else ''
+                name = table.item(row,0).text() if table.item(row,0) else ''
+                proj = Path(__file__).resolve().parents[1]
+                f = proj / 'outputs' / 'system' / 'forgot_requests.json'
+                if not f.exists():
+                    return
+                import json
+                items = json.loads(f.read_text(encoding='utf-8'))
+                for i in items:
+                    if str(i.get('email','')) == email and str(i.get('full_name','')) == name and str(i.get('status','')) == 'pending':
+                        i['status'] = 'resolved'
+                        break
+                f.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding='utf-8')
+                load_items()
+                self.update_notify_badge()
+            except Exception:
+                pass
+        btnRefresh.clicked.connect(load_items)
+        btnResolve.clicked.connect(mark_resolved)
+        load_items()
         dlg.exec()
 
     def on_tab_changed(self, idx: int):

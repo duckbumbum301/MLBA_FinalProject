@@ -156,7 +156,7 @@ class PredictionTabWidget(QWidget):
         
         # === ADMIN: Compare All Models Button ===
         if self.user.is_admin():
-            self.btnCompareAll = QPushButton("📊 So Sánh 8 Models")
+            self.btnCompareAll = QPushButton("📊 So sánh 8 mô hình")
             self.btnCompareAll.setObjectName('Secondary')
             self.btnCompareAll.clicked.connect(self.compare_all_models)
             button_layout.addWidget(self.btnCompareAll)
@@ -807,13 +807,13 @@ class PredictionTabWidget(QWidget):
     def show_comparison_results(self, results: dict, errors: list):
         """Hiển thị kết quả so sánh trong dialog"""
         dialog = QDialog(self)
-        dialog.setWindowTitle("📊 So Sánh 8 Models")
+        dialog.setWindowTitle("📊 So sánh 8 mô hình")
         dialog.setMinimumSize(800, 500)
         
         layout = QVBoxLayout()
         
         # Title
-        title = QLabel("KẾT QUẢ SO SÁNH 8 MODELS")
+        title = QLabel("KẾT QUẢ SO SÁNH 8 MÔ HÌNH")
         title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
@@ -821,7 +821,7 @@ class PredictionTabWidget(QWidget):
         # Table
         table = QTableWidget()
         table.setColumnCount(4)
-        table.setHorizontalHeaderLabels(["Model", "Xác suất vỡ nợ", "Nhãn rủi ro", "Trạng thái"])
+        table.setHorizontalHeaderLabels(["Mô hình", "Xác suất vỡ nợ", "Nhãn rủi ro", "Trạng thái"])
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         
         # Sắp xếp theo xác suất giảm dần
@@ -838,7 +838,7 @@ class PredictionTabWidget(QWidget):
             table.setItem(row, 0, QTableWidgetItem(model_name))
             table.setItem(row, 1, QTableWidgetItem(f"{result.probability:.2%}"))
             table.setItem(row, 2, QTableWidgetItem(result.get_risk_label()))
-            table.setItem(row, 3, QTableWidgetItem("✅ OK"))
+            table.setItem(row, 3, QTableWidgetItem("✅ Hợp lệ"))
             
             # Màu sắc theo risk
             if result.is_high_risk():
@@ -856,7 +856,7 @@ class PredictionTabWidget(QWidget):
             table.setItem(row, 0, QTableWidgetItem(model_name))
             table.setItem(row, 1, QTableWidgetItem("-"))
             table.setItem(row, 2, QTableWidgetItem("-"))
-            table.setItem(row, 3, QTableWidgetItem("❌ Error"))
+            table.setItem(row, 3, QTableWidgetItem("❌ Lỗi"))
             for col in range(4):
                 table.item(row, col).setBackground(QColor(220, 220, 220))
             row += 1

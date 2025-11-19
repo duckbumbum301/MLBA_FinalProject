@@ -31,6 +31,7 @@ QHeaderView::section { background: #eef3f8; padding: 8px; border: 1px solid #dfe
 /* Card */
 #Card { background: #fff; border: 1px solid #dfe6ee; border-radius: 16px; padding: 20px; }
 #CardTitle { font-size: 23px; font-weight: 700; margin: 8px 0 16px 0; color: #2c3e50; font-family: 'Poppins','Segoe UI','Arial'; }
+QLabel#SectionTitle { font-size: 20px; font-weight: 700; color: #2663ea; font-family: 'Poppins','Segoe UI','Arial'; margin: 4px 0 12px 0; }
 
 /* Links */
 #LinkButton { background: transparent; color: #2663ea; text-decoration: underline; border: none; padding: 0; }
@@ -52,6 +53,8 @@ QLineEdit { height: 34px; }
 #NavBar QLineEdit#SearchBox { padding: 6px 10px; border: 1px solid #dfe6ee; border-radius: 8px; min-width: 240px; }
 QLabel#Heading2 { font-family: 'Poppins','Segoe UI','Arial'; font-size: 25px; font-weight: 700; color: #ffffff; }
 QLabel#Heading3 { font-family: 'Poppins','Segoe UI','Arial'; font-size: 20px; font-weight: 700; color: #2663ea; }
+QPushButton#NotifyButton { background: #ffffff; border: 1px solid #dfe6ee; border-radius: 17px; min-width: 34px; min-height: 34px; max-height: 34px; padding: 0px; margin: 0px; }
+QLabel#NotifyBadge { background: #EB5757; color: #ffffff; border-radius: 9px; padding: 0px; min-width: 18px; min-height: 18px; font-size: 12px; font-weight: 700; qproperty-alignment: AlignCenter; }
 /* Footer */
 #Footer { background: #f7f9fc; border-top: 1px solid #dfe6ee; padding: 8px 16px; }
 #Footer QLabel { color: #6b778c; font-family: 'Inter','Segoe UI','Arial'; font-size: 16px; }

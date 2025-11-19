@@ -161,6 +161,16 @@ class QueryService:
         
         return predictions
 
+    def save_model_threshold(self, model_name: str, threshold: float, updated_by: str) -> bool:
+        try:
+            q1 = "INSERT INTO model_thresholds (model_name, threshold, updated_by) VALUES (%s, %s, %s)"
+            ok1 = self.db.execute_query(q1, (model_name, float(threshold), updated_by))
+            q2 = "UPDATE model_registry SET threshold = %s WHERE model_name = %s"
+            ok2 = self.db.execute_query(q2, (float(threshold), model_name))
+            return bool(ok1 and ok2)
+        except Exception:
+            return False
+
     # ===================== Aggregates for User Dashboard =====================
     def get_risk_bucket_counts(self) -> Dict[str, int]:
         """Đếm số lượng predictions theo các bucket xác suất"""
@@ -537,6 +547,235 @@ class QueryService:
             'high_risk_count': int(row[1] or 0),
             'avg_probability': float(row[2] or 0.0)
         }
+
+    def _build_time_where(self, time_range: str) -> str:
+        tr = (time_range or '').strip().lower()
+        if 'hôm nay' in tr or 'hom nay' in tr or 'today' in tr:
+            return "DATE(p.created_at) = CURDATE()"
+        if 'tuần' in tr or 'tuan' in tr or 'week' in tr:
+            return "YEARWEEK(p.created_at) = YEARWEEK(CURDATE())"
+        if 'quý' in tr or 'quy' in tr or 'quarter' in tr:
+            return "YEAR(p.created_at) = YEAR(CURDATE()) AND QUARTER(p.created_at) = QUARTER(CURDATE())"
+        if 'năm' in tr or 'nam' in tr or 'year' in tr:
+            return "YEAR(p.created_at) = YEAR(CURDATE())"
+        if 'tất cả' in tr or 'tat ca' in tr or 'all' in tr:
+            return "1 = 1"
+        return "DATE_FORMAT(p.created_at,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')"
+
+    def get_prediction_stats_filtered(self, time_range: str, status_filter: str, user_id: Optional[int] = None) -> Dict:
+        where_parts = [self._build_time_where(time_range)]
+        sf = (status_filter or '').strip().lower()
+        if 'nguy cơ cao' in sf or 'cao' in sf or 'high' in sf:
+            where_parts.append("p.predicted_label = 1")
+        elif 'nguy cơ thấp' in sf or 'thấp' in sf or 'low' in sf:
+            where_parts.append("p.predicted_label = 0")
+        if user_id is not None:
+            where_parts.append("p.user_id = %s")
+        where_sql = ' AND '.join(where_parts)
+        query = f"""
+            SELECT 
+                COUNT(*) AS total_predictions,
+                SUM(CASE WHEN p.predicted_label = 1 THEN 1 ELSE 0 END) AS high_risk_count,
+                AVG(p.probability) AS avg_probability
+            FROM predictions_log p
+            WHERE {where_sql}
+        """
+        params = (user_id,) if user_id is not None else tuple()
+        row = self.db.fetch_one(query, params if params else None)
+        if not row:
+            return {'total_predictions': 0, 'high_risk_count': 0, 'avg_probability': 0.0}
+        return {
+            'total_predictions': int(row[0] or 0),
+            'high_risk_count': int(row[1] or 0),
+            'avg_probability': float(row[2] or 0.0)
+        }
+
+    def get_prediction_stats_range(self, start_date: Optional[str], end_date: Optional[str], status_filter: str, user_id: Optional[int] = None) -> Dict:
+        where_parts = []
+        if start_date and end_date:
+            where_parts.append("DATE(p.created_at) BETWEEN %s AND %s")
+        sf = (status_filter or '').strip().lower()
+        if 'nguy cơ cao' in sf or 'cao' in sf or 'high' in sf:
+            where_parts.append("p.predicted_label = 1")
+        elif 'nguy cơ thấp' in sf or 'thấp' in sf or 'low' in sf:
+            where_parts.append("p.predicted_label = 0")
+        if user_id is not None:
+            where_parts.append("p.user_id = %s")
+        where_sql = ' AND '.join(where_parts) if where_parts else '1=1'
+        query = f"""
+            SELECT 
+                COUNT(*) AS total_predictions,
+                SUM(CASE WHEN p.predicted_label = 1 THEN 1 ELSE 0 END) AS high_risk_count,
+                AVG(p.probability) AS avg_probability
+            FROM predictions_log p
+            WHERE {where_sql}
+        """
+        params: list = []
+        if start_date and end_date:
+            params += [start_date, end_date]
+        if user_id is not None:
+            params += [user_id]
+        row = self.db.fetch_one(query, tuple(params) if params else None)
+        if not row:
+            return {'total_predictions': 0, 'high_risk_count': 0, 'avg_probability': 0.0}
+        return {
+            'total_predictions': int(row[0] or 0),
+            'high_risk_count': int(row[1] or 0),
+            'avg_probability': float(row[2] or 0.0)
+        }
+
+    def get_predictions_join_customers_range(self, start_date: Optional[str], end_date: Optional[str], status_filter: str, limit: int = 200, user_id: Optional[int] = None) -> List[Dict]:
+        where_parts = []
+        if start_date and end_date:
+            where_parts.append("DATE(p.created_at) BETWEEN %s AND %s")
+        sf = (status_filter or '').strip().lower()
+        if 'nguy cơ cao' in sf or 'cao' in sf or 'high' in sf:
+            where_parts.append("p.predicted_label = 1")
+        elif 'nguy cơ thấp' in sf or 'thấp' in sf or 'low' in sf:
+            where_parts.append("p.predicted_label = 0")
+        if user_id is not None:
+            where_parts.append("p.user_id = %s")
+        where_sql = ' AND '.join(where_parts) if where_parts else '1=1'
+        query = f"""
+            SELECT p.customer_id, p.probability, p.predicted_label, p.created_at, p.raw_input_json, p.user_id,
+                   c.customer_name, c.customer_id_card, c.LIMIT_BAL, c.AGE, c.PAY_0, c.BILL_AMT1
+            FROM predictions_log p
+            LEFT JOIN customers c ON p.customer_id = c.id
+            WHERE {where_sql}
+            ORDER BY p.created_at DESC
+            LIMIT %s
+        """
+        params: list = []
+        if start_date and end_date:
+            params += [start_date, end_date]
+        if user_id is not None:
+            params += [user_id]
+        params += [limit]
+        rows = self.db.fetch_all(query, tuple(params))
+        results: List[Dict] = []
+        for r in rows:
+            results.append({
+                'customer_id': int(r[0] or 0),
+                'probability': float(r[1] or 0.0),
+                'label': int(r[2] or 0),
+                'created_at': r[3],
+                'raw_input_json': r[4],
+                'user_id': int(r[5] or 0) if r[5] is not None else None,
+                'customer_name': r[6],
+                'customer_id_card': r[7],
+                'LIMIT_BAL': float(r[8] or 0.0),
+                'AGE': int(r[9] or 0) if r[9] is not None else None,
+                'PAY_0': int(r[10] or 0) if r[10] is not None else None,
+                'BILL_AMT1': float(r[11] or 0.0),
+            })
+        return results
+
+    def get_predictions_join_customers(self, time_range: str, status_filter: str, limit: int = 200, user_id: Optional[int] = None) -> List[Dict]:
+        where_parts = [self._build_time_where(time_range)]
+        sf = (status_filter or '').strip().lower()
+        if 'nguy cơ cao' in sf or 'cao' in sf or 'high' in sf:
+            where_parts.append("p.predicted_label = 1")
+        elif 'nguy cơ thấp' in sf or 'thấp' in sf or 'low' in sf:
+            where_parts.append("p.predicted_label = 0")
+        if user_id is not None:
+            where_parts.append("p.user_id = %s")
+        where_sql = ' AND '.join(where_parts)
+        query = f"""
+            SELECT p.customer_id, p.probability, p.predicted_label, p.created_at, p.raw_input_json, p.user_id,
+                   c.customer_name, c.customer_id_card, c.LIMIT_BAL, c.AGE, c.PAY_0, c.BILL_AMT1
+            FROM predictions_log p
+            LEFT JOIN customers c ON p.customer_id = c.id
+            WHERE {where_sql}
+            ORDER BY p.created_at DESC
+            LIMIT %s
+        """
+        params: tuple = (user_id, limit) if user_id is not None else (limit,)
+        rows = self.db.fetch_all(query, params)
+        results: List[Dict] = []
+        for r in rows:
+            results.append({
+                'customer_id': int(r[0] or 0),
+                'probability': float(r[1] or 0.0),
+                'label': int(r[2] or 0),
+                'created_at': r[3],
+                'raw_input_json': r[4],
+                'user_id': int(r[5] or 0) if r[5] is not None else None,
+                'customer_name': r[6],
+                'customer_id_card': r[7],
+                'LIMIT_BAL': float(r[8] or 0.0),
+                'AGE': int(r[9] or 0) if r[9] is not None else None,
+                'PAY_0': int(r[10] or 0) if r[10] is not None else None,
+                'BILL_AMT1': float(r[11] or 0.0),
+            })
+        return results
+
+    def get_top_predictions_join_customers_filtered(self, ascending: bool, time_range: str, limit: int = 10, user_id: Optional[int] = None) -> List[Dict]:
+        order = "ASC" if ascending else "DESC"
+        where_parts = [self._build_time_where(time_range)]
+        if user_id is not None:
+            where_parts.append("p.user_id = %s")
+        where_sql = ' AND '.join(where_parts)
+        query = f"""
+            SELECT p.customer_id, p.probability, p.predicted_label,
+                   c.customer_name, c.customer_id_card
+            FROM predictions_log p
+            INNER JOIN customers c ON p.customer_id = c.id
+            WHERE {where_sql}
+            ORDER BY p.probability {order}
+            LIMIT %s
+        """
+        params: tuple = (user_id, limit) if user_id is not None else (limit,)
+        rows = self.db.fetch_all(query, params)
+        results: List[Dict] = []
+        for r in rows:
+            results.append({
+                'customer_id': int(r[0] or 0),
+                'probability': float(r[1] or 0.0),
+                'label': int(r[2] or 0),
+                'customer_name': r[3],
+                'customer_id_card': r[4],
+            })
+        return results
+
+    def get_demographics_counts_filtered(self, time_range: str, user_id: Optional[int] = None) -> tuple:
+        where_parts = [self._build_time_where(time_range)]
+        if user_id is not None:
+            where_parts.append("p.user_id = %s")
+        where_sql = ' AND '.join(where_parts)
+        # Gender
+        rows = self.db.fetch_all(
+            f"""
+            SELECT c.SEX, COUNT(*)
+            FROM customers c JOIN predictions_log p ON p.customer_id = c.id
+            WHERE {where_sql}
+            GROUP BY c.SEX
+            """,
+            (user_id,) if user_id is not None else None
+        )
+        gender_map = {self._map_sex_label(r[0]): int(r[1]) for r in rows}
+        # Marriage
+        rows = self.db.fetch_all(
+            f"""
+            SELECT c.MARRIAGE, COUNT(*)
+            FROM customers c JOIN predictions_log p ON p.customer_id = c.id
+            WHERE {where_sql}
+            GROUP BY c.MARRIAGE
+            """,
+            (user_id,) if user_id is not None else None
+        )
+        marriage_map = {self._map_marriage_label(r[0]): int(r[1]) for r in rows}
+        # Education
+        rows = self.db.fetch_all(
+            f"""
+            SELECT c.EDUCATION, COUNT(*)
+            FROM customers c JOIN predictions_log p ON p.customer_id = c.id
+            WHERE {where_sql}
+            GROUP BY c.EDUCATION
+            """,
+            (user_id,) if user_id is not None else None
+        )
+        education_map = {self._map_education_label(r[0]): int(r[1]) for r in rows}
+        return gender_map, marriage_map, education_map
 
     def get_latest_day_bucket_counts(self) -> Dict[str, int]:
         row = self.db.fetch_one("SELECT DATE(created_at) FROM predictions_log ORDER BY created_at DESC LIMIT 1")

@@ -73,7 +73,7 @@ class DashboardTabWidget(QWidget):
         main_layout = QVBoxLayout(content); main_layout.setContentsMargins(16,16,16,16); main_layout.setSpacing(16)
         
         # Refresh button (style như Secondary)
-        self.btnRefresh = QPushButton("Refresh Dashboard")
+        self.btnRefresh = QPushButton("Làm mới Bảng điều khiển")
         try:
             self.btnRefresh.setObjectName('Secondary')
             self.btnRefresh.setStyleSheet("")
@@ -225,7 +225,7 @@ class DashboardTabWidget(QWidget):
             v2 = QVBoxLayout(extra2); v2.setContentsMargins(12,12,12,12); v2.setSpacing(8)
             t2 = QLabel('Danh sách khách hàng trễ hạn gần đây'); t2.setObjectName('ChartTitle'); v2.addWidget(t2)
             self.table_late_customers = QTableWidget(0, 5)
-            self.table_late_customers.setHorizontalHeaderLabels(['Customer','Citizen ID','Risk','Months Late','Amount Overdue'])
+            self.table_late_customers.setHorizontalHeaderLabels(['Khách hàng','CMND','Rủi ro','Số tháng trễ','Số tiền quá hạn'])
             try:
                 hdr2 = self.table_late_customers.horizontalHeader()
                 hdr2.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -260,10 +260,10 @@ class DashboardTabWidget(QWidget):
                 # Admin: giữ dashboard ML hiện tại
                 self.eval_data = load_evaluation_data()
                 try:
-                    self.title_top_left.setText('Tầm quan trọng đặc trưng (Feature Importance)')
-                    self.title_top_right.setText('Ma trận nhầm lẫn (Confusion Matrix)')
-                    self.title_bottom_left.setText('Đường cong ROC (ROC Curves)')
-                    self.title_bottom_right.setText('Phân phối rủi ro (Risk Distribution)')
+                    self.title_top_left.setText('Tầm quan trọng đặc trưng')
+                    self.title_top_right.setText('Ma trận nhầm lẫn')
+                    self.title_bottom_left.setText('Đường cong ROC')
+                    self.title_bottom_right.setText('Phân phối rủi ro')
                 except Exception:
                     pass
                 self._plot_admin_ml_dashboard()
@@ -299,7 +299,7 @@ class DashboardTabWidget(QWidget):
             if cm is not None:
                 plot_confusion_matrix(ax, cm, model_name='XGBoost')
             else:
-                ax.text(0.5, 0.5, 'No data available', ha='center', va='center', transform=ax.transAxes)
+                ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
             self.canvas_top_right.draw()
 
             # ROC Curves
@@ -308,7 +308,7 @@ class DashboardTabWidget(QWidget):
             if roc_data:
                 plot_roc_curves(ax, roc_data)
             else:
-                ax.text(0.5, 0.5, 'No data available', ha='center', va='center', transform=ax.transAxes)
+                ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
             self.canvas_bottom_left.draw()
 
             # Risk Distribution
@@ -318,7 +318,7 @@ class DashboardTabWidget(QWidget):
             if y_test is not None and len(y_test) > 0 and predictions:
                 plot_risk_distribution(ax, y_test, predictions)
             else:
-                ax.text(0.5, 0.5, 'No data available', ha='center', va='center', transform=ax.transAxes)
+                ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
             self.canvas_bottom_right.draw()
         except Exception as e:
             print(f"⚠ Lỗi vẽ admin dashboard: {e}")
@@ -390,14 +390,14 @@ class DashboardTabWidget(QWidget):
                 labels = [str(k) for k in data.keys()]
                 sizes = [int(v) for v in data.values()]
                 if sum(sizes)==0:
-                    ax.text(0.5,0.5,'No data', ha='center', va='center', transform=ax.transAxes)
+                    ax.text(0.5,0.5,'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
                     return
                 colors = self._assign_rank_colors(sizes)
                 ax.pie(sizes, labels=labels, autopct='%1.0f%%', startangle=90, colors=colors, textprops={'fontsize':8})
                 ax.axis('equal')
-            pie(ax1, gender, 'Gender')
-            pie(ax2, marriage, 'Marriage Status')
-            pie(ax3, education, 'Education')
+            pie(ax1, gender, 'Giới tính')
+            pie(ax2, marriage, 'Tình trạng hôn nhân')
+            pie(ax3, education, 'Trình độ học vấn')
             self.canvas_bottom_right.draw()
         except Exception as e:
             print(f"⚠ Lỗi vẽ pie charts: {e}")
@@ -417,7 +417,7 @@ class DashboardTabWidget(QWidget):
                 except Exception:
                     pass
             else:
-                ax.text(0.5,0.5,'No data', ha='center', va='center', transform=ax.transAxes)
+                ax.text(0.5,0.5,'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
             self.canvas_pay_status.draw()
         except Exception as e:
             print(f"⚠ Lỗi vẽ payment status: {e}")
@@ -461,7 +461,7 @@ class DashboardTabWidget(QWidget):
             if cm is not None:
                 plot_confusion_matrix(ax, cm, model_name='XGBoost')
             else:
-                ax.text(0.5, 0.5, 'No data available', 
+                ax.text(0.5, 0.5, 'Không có dữ liệu', 
                        ha='center', va='center', transform=ax.transAxes)
             
             self.canvas_confusion_matrix.draw()
@@ -480,7 +480,7 @@ class DashboardTabWidget(QWidget):
             if roc_data:
                 plot_roc_curves(ax, roc_data)
             else:
-                ax.text(0.5, 0.5, 'No data available',
+                ax.text(0.5, 0.5, 'Không có dữ liệu',
                        ha='center', va='center', transform=ax.transAxes)
             
             self.canvas_roc.draw()
@@ -500,7 +500,7 @@ class DashboardTabWidget(QWidget):
             if y_test is not None and len(y_test) > 0 and predictions:
                 plot_risk_distribution(ax, y_test, predictions)
             else:
-                ax.text(0.5, 0.5, 'No data available',
+                ax.text(0.5, 0.5, 'Không có dữ liệu',
                        ha='center', va='center', transform=ax.transAxes)
             
             self.canvas_risk_dist.draw()
@@ -604,10 +604,10 @@ class DashboardTabWidget(QWidget):
             delta = 0.0
             if series and len(series) >= 2:
                 delta = (series[-1]['rate'] - series[-2]['rate']) * 100
-            status = 'Warning' if abs(delta) >= 5.0 else 'Stable'
-            self.health_labels['data']['desc'].setText(f"Default rate drift: {delta:+.1f}%")
+            status = 'Cảnh báo' if abs(delta) >= 5.0 else 'Ổn định'
+            self.health_labels['data']['desc'].setText(f"Độ lệch tỷ lệ vỡ nợ: {delta:+.1f}%")
             self.health_labels['data']['chip'].setText(status)
-            self.health_labels['data']['chip'].setObjectName('ChipWarning' if status=='Warning' else 'ChipStable')
+            self.health_labels['data']['chip'].setObjectName('ChipWarning' if status=='Cảnh báo' else 'ChipStable')
             try:
                 self.health_labels['data']['chip'].setStyleSheet("")
             except Exception:
@@ -620,25 +620,25 @@ class DashboardTabWidget(QWidget):
                 prev_series = self._get_monthly_default_rate(2)
                 prev_rate = prev_series[-2]['rate'] if len(prev_series) >= 2 else avg_prob
                 pred_delta = (avg_prob - prev_rate) * 100
-                pstatus = 'Warning' if abs(pred_delta) >= 5.0 else 'Stable'
-                self.health_labels['pred']['desc'].setText(f"Prediction drift: {pred_delta:+.1f}%")
+                pstatus = 'Cảnh báo' if abs(pred_delta) >= 5.0 else 'Ổn định'
+                self.health_labels['pred']['desc'].setText(f"Độ lệch dự báo: {pred_delta:+.1f}%")
                 self.health_labels['pred']['chip'].setText(pstatus)
-                self.health_labels['pred']['chip'].setObjectName('ChipWarning' if pstatus=='Warning' else 'ChipStable')
+                self.health_labels['pred']['chip'].setObjectName('ChipWarning' if pstatus=='Cảnh báo' else 'ChipStable')
                 try:
                     self.health_labels['pred']['chip'].setStyleSheet("")
                 except Exception:
                     pass
             else:
-                self.health_labels['pred']['desc'].setText("Prediction drift: N/A")
+                self.health_labels['pred']['desc'].setText("Độ lệch dự báo: N/A")
                 self.health_labels['pred']['chip'].setText("")
 
             # Feature drift (proxy: high-risk change)
             quarters = self._get_quarterly_high_risk_rate(2)
             feat_delta = (quarters[-1]['rate'] - quarters[-2]['rate']) * 100 if len(quarters) >= 2 else 0.0
-            fstatus = 'Warning' if abs(feat_delta) >= 10.0 else 'Stable'
-            self.health_labels['feat']['desc'].setText(f"PAY_0 drift: {feat_delta:+.1f}%")
+            fstatus = 'Cảnh báo' if abs(feat_delta) >= 10.0 else 'Ổn định'
+            self.health_labels['feat']['desc'].setText(f"Độ lệch PAY_0: {feat_delta:+.1f}%")
             self.health_labels['feat']['chip'].setText(fstatus)
-            self.health_labels['feat']['chip'].setObjectName('ChipWarning' if fstatus=='Warning' else 'ChipStable')
+            self.health_labels['feat']['chip'].setObjectName('ChipWarning' if fstatus=='Cảnh báo' else 'ChipStable')
             try:
                 self.health_labels['feat']['chip'].setStyleSheet("")
             except Exception:
@@ -659,22 +659,22 @@ class DashboardTabWidget(QWidget):
             except Exception:
                 acc_pct = None
             if acc_pct is not None:
-                self.health_labels['acc']['desc'].setText(f"Model accuracy: {acc_pct:.1f}%")
-                astatus = 'Stable' if acc_pct >= 75.0 else 'Warning'
+                self.health_labels['acc']['desc'].setText(f"Độ chính xác mô hình: {acc_pct:.1f}%")
+                astatus = 'Ổn định' if acc_pct >= 75.0 else 'Cảnh báo'
                 self.health_labels['acc']['chip'].setText(astatus)
-                self.health_labels['acc']['chip'].setObjectName('ChipStable' if astatus=='Stable' else 'ChipWarning')
+                self.health_labels['acc']['chip'].setObjectName('ChipStable' if astatus=='Ổn định' else 'ChipWarning')
             else:
-                self.health_labels['acc']['desc'].setText("Model accuracy: N/A")
+                self.health_labels['acc']['desc'].setText("Độ chính xác mô hình: N/A")
                 self.health_labels['acc']['chip'].setText("")
             try:
                 self.health_labels['acc']['chip'].setStyleSheet("")
             except Exception:
                 pass
         except Exception:
-            self.health_labels['data']['desc'].setText(f"Default rate drift: N/A")
-            self.health_labels['pred']['desc'].setText(f"Prediction drift: N/A")
-            self.health_labels['feat']['desc'].setText(f"Feature drift: N/A")
-            self.health_labels['acc']['desc'].setText("Model accuracy: N/A")
+            self.health_labels['data']['desc'].setText(f"Độ lệch tỷ lệ vỡ nợ: N/A")
+            self.health_labels['pred']['desc'].setText(f"Độ lệch dự báo: N/A")
+            self.health_labels['feat']['desc'].setText(f"Độ lệch đặc trưng: N/A")
+            self.health_labels['acc']['desc'].setText("Độ chính xác mô hình: N/A")
     def _update_kpi_cards(self):
         stats = None
         if self.query_service and hasattr(self.query_service, 'get_prediction_stats'):

@@ -301,6 +301,26 @@ class SystemManagementTab(QWidget):
         val = float(self.spnThreshold.value())
         ok = self._save_threshold(name, val)
         if ok:
+            try:
+                db = self._get_db_connector()
+                try:
+                    qs = self._get_query_service(db)
+                except Exception:
+                    qs = None
+                if qs and hasattr(qs, 'save_model_threshold'):
+                    qs.save_model_threshold(name, val, 'admin')
+                else:
+                    db.execute_query(
+                        "INSERT INTO model_thresholds (model_name, threshold, updated_by) VALUES (%s, %s, %s)",
+                        (name, val, 'admin')
+                    )
+                    db.execute_query(
+                        "UPDATE model_registry SET threshold = %s WHERE model_name = %s",
+                        (val, name)
+                    )
+                db.close()
+            except Exception:
+                pass
             self._show_msg(f"Đã cập nhật <b>threshold</b> cho <b>{name}</b>: {val:.2f}", 'Thành công', 'success')
             self._load_models_table()
             self._load_threshold_audit()

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 # Add project root
-project_root = Path(__file__).resolve().parent.parent
+project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
 
 from config.database_config import DatabaseConfig
@@ -33,6 +33,7 @@ def main():
     # Read and execute SQL files
     sql_files = [
         'database\\credit_scoring\\user.sql',
+        'database\\credit_scoring\\customers.sql',
         'database\\credit_scoring\\model_registry.sql',
         'database\\credit_scoring\\customer_clusters.sql',
         'database\\credit_scoring\\data_quality_log.sql',
@@ -69,6 +70,44 @@ def main():
                 print(f"  ⚠ Warning: {e}")
         
         print(f"  ✓ Done")
+    # Ensure threshold audit table and column
+    try:
+        print("\n▶ Ensuring model_thresholds table...")
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS model_thresholds (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                model_name VARCHAR(64) NOT NULL,
+                threshold DECIMAL(5,4) NOT NULL,
+                updated_by VARCHAR(64),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_model (model_name),
+                INDEX idx_created (created_at)
+            )
+            """
+        )
+        conn.commit()
+        print("  ✓ model_thresholds ready")
+    except Exception as e:
+        print(f"  ⚠ model_thresholds failed: {e}")
+    try:
+        print("\n▶ Ensuring model_registry.threshold column...")
+        cursor.execute(
+            """
+            SELECT COUNT(*) FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = 'model_registry' AND column_name = 'threshold'
+            """,
+            (config.database,)
+        )
+        exists = cursor.fetchone()[0] > 0
+        if not exists:
+            cursor.execute("ALTER TABLE model_registry ADD COLUMN threshold DECIMAL(5,4) NULL")
+            conn.commit()
+            print("  ✓ Added model_registry.threshold")
+        else:
+            print("  ✓ model_registry.threshold exists")
+    except Exception as e:
+        print(f"  ⚠ threshold column check failed: {e}")
     
     # Verify tables
     print("\n" + "-"*60)
@@ -79,7 +118,7 @@ def main():
     tables = [row[0] for row in cursor.fetchall()]
     
     expected_tables = ['user', 'customers', 'predictions_log', 'model_registry', 
-                       'customer_clusters', 'data_quality_log', 'ai_chat_history']
+                       'customer_clusters', 'data_quality_log', 'ai_chat_history', 'model_thresholds']
     
     for table in expected_tables:
         if table in tables:

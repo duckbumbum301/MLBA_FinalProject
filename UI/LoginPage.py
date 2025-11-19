@@ -64,11 +64,11 @@ class LoginPage(QWidget):
             logo.setPixmap(pix.scaled(120, 120, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         card.addWidget(logo, alignment=Qt.AlignmentFlag.AlignHCenter)
         form = QVBoxLayout(); form.setSpacing(10)
-        self.txtUsername = QLineEdit(); self.txtUsername.setPlaceholderText('Enter your user name')
-        self.txtPassword = QLineEdit(); self.txtPassword.setEchoMode(QLineEdit.EchoMode.Password); self.txtPassword.setPlaceholderText('Enter your password')
-        form.addWidget(QLabel('User name'))
+        self.txtUsername = QLineEdit(); self.txtUsername.setPlaceholderText('Nhập tên đăng nhập')
+        self.txtPassword = QLineEdit(); self.txtPassword.setEchoMode(QLineEdit.EchoMode.Password); self.txtPassword.setPlaceholderText('Nhập mật khẩu')
+        form.addWidget(QLabel('Tên đăng nhập'))
         form.addWidget(self.txtUsername)
-        form.addWidget(QLabel('Password'))
+        form.addWidget(QLabel('Mật khẩu'))
         form.addWidget(self.txtPassword)
         
         # Forgot password link + popup
@@ -81,7 +81,7 @@ class LoginPage(QWidget):
         btnAlt.clicked.connect(self._open_alt_dialog)
         
         actions = QHBoxLayout(); actions.setSpacing(12)
-        self.btnLogin = QPushButton('Sign In'); self.btnLogin.setObjectName('Primary')
+        self.btnLogin = QPushButton('Đăng nhập'); self.btnLogin.setObjectName('Primary')
         self.btnLogin.clicked.connect(self.handle_login)
         self.txtPassword.returnPressed.connect(self.handle_login)
         actions.addWidget(self.btnLogin)

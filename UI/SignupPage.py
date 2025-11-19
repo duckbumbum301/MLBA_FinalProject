@@ -42,7 +42,7 @@ class SignupPage(QWidget):
         top.setObjectName('TopBar')
         th = QHBoxLayout(top)
         th.setContentsMargins(16, 8, 16, 8)
-        th.addWidget(QLabel('Credit Risk Management System'))
+        th.addWidget(QLabel('Hệ Thống Quản Lý Rủi Ro Tín Dụng'))
         th.addStretch()
         status = QLabel('Đăng ký tài khoản mới')
         status.setObjectName('HeaderStatus')

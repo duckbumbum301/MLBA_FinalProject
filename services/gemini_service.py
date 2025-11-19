@@ -3,6 +3,7 @@ Gemini AI Service
 Service tích hợp Google Gemini cho AI Assistant
 """
 import json
+import decimal
 import time
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -94,8 +95,35 @@ class GeminiService:
         
         try:
             # Prepare full prompt with context
+            def _to_json_safe(obj):
+                if obj is None:
+                    return None
+                if isinstance(obj, (str, int, float, bool)):
+                    return obj
+                if isinstance(obj, decimal.Decimal):
+                    try:
+                        return float(obj)
+                    except Exception:
+                        return float(str(obj))
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                if isinstance(obj, bytes):
+                    try:
+                        return obj.decode('utf-8', errors='ignore')
+                    except Exception:
+                        return str(obj)
+                if isinstance(obj, (list, tuple, set)):
+                    return [ _to_json_safe(x) for x in list(obj) ]
+                if isinstance(obj, dict):
+                    return { str(k): _to_json_safe(v) for k, v in obj.items() }
+                try:
+                    return json.loads(json.dumps(obj))
+                except Exception:
+                    return str(obj)
+
             if context:
-                context_str = json.dumps(context, indent=2, ensure_ascii=False)
+                context_safe = _to_json_safe(context)
+                context_str = json.dumps(context_safe, indent=2, ensure_ascii=False)
                 full_prompt = f"""
 Context Data:
 ```json
@@ -114,12 +142,31 @@ Hãy phân tích và trả lời câu hỏi dựa trên context data ở trên.
             response = self.chat_session.send_message(full_prompt)
             response_time_ms = int((time.time() - start_time) * 1000)
             
-            response_text = response.text
+            try:
+                response_text = getattr(response, 'text', None)
+                if not response_text:
+                    # Try generate_content as a fallback
+                    try:
+                        alt = self.model.generate_content(full_prompt)
+                        response_text = getattr(alt, 'text', None)
+                    except Exception:
+                        response_text = None
+                if not response_text:
+                    # Build safety-aware message
+                    reason = None
+                    try:
+                        d = response.to_dict()
+                        reason = str(d.get('candidates',[{}])[0].get('finish_reason'))
+                    except Exception:
+                        pass
+                    response_text = f"⚠ Không thể đọc phản hồi từ Gemini. finish_reason={reason or 'unknown'}. Vui lòng thử lại với câu hỏi rõ ràng hơn."
+            except Exception:
+                response_text = "⚠ Không thể đọc phản hồi từ Gemini."
             
             # Save to database
             self._save_chat_history(
                 context_type=context_type,
-                context_data=context,
+                context_data=context_safe if context else None,
                 user_message=message,
                 ai_response=response_text,
                 response_time_ms=response_time_ms
@@ -272,7 +319,31 @@ Dùng tables, bullet points, và emoji. Ngắn gọn, tập trung vào insights 
                 VALUES (%s, %s, %s, %s, %s, %s)
             """
             
-            context_json = json.dumps(context_data) if context_data else None
+            def _to_json_safe_db(obj):
+                # Reuse same logic as above but avoid circular reference
+                if obj is None:
+                    return None
+                if isinstance(obj, (str, int, float, bool)):
+                    return obj
+                if isinstance(obj, decimal.Decimal):
+                    try:
+                        return float(obj)
+                    except Exception:
+                        return float(str(obj))
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                if isinstance(obj, bytes):
+                    try:
+                        return obj.decode('utf-8', errors='ignore')
+                    except Exception:
+                        return str(obj)
+                if isinstance(obj, (list, tuple, set)):
+                    return [ _to_json_safe_db(x) for x in list(obj) ]
+                if isinstance(obj, dict):
+                    return { str(k): _to_json_safe_db(v) for k, v in obj.items() }
+                return str(obj)
+
+            context_json = json.dumps(_to_json_safe_db(context_data)) if context_data else None
             
             self.db.execute_query(
                 query,

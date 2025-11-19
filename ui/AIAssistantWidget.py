@@ -76,7 +76,7 @@ class AIAssistantWidget(QWidget):
         layout.setContentsMargins(16, 12, 16, 16)
         
         # Title
-        title = QLabel("🤖 AI TRỢ LÝ - GEMINI")
+        title = QLabel("🤖 AI TRỢ LÝ - NYTDT")
         title.setObjectName('Heading3')
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
@@ -181,10 +181,14 @@ class AIAssistantWidget(QWidget):
         self.input_field.clear()
         
         try:
-            if self.user.is_admin():
-                context = self.get_admin_context()
+            ctx_choice = self.context_selector.currentText()
+            if ctx_choice.startswith("Hỏi chung"):
+                context = None
             else:
-                context = self.get_user_context()
+                if self.user.is_admin():
+                    context = self.get_admin_context()
+                else:
+                    context = self.get_user_context()
 
             worker = AIAssistantWidget.ChatWorker(
                 self.gemini_service,
@@ -220,7 +224,11 @@ class AIAssistantWidget(QWidget):
         typing_id = self.show_typing_indicator()
         # Gửi nền
         try:
-            context = self.get_admin_context() if self.user.is_admin() else self.get_user_context()
+            ctx_choice = self.context_selector.currentText()
+            if ctx_choice.startswith("Hỏi chung"):
+                context = None
+            else:
+                context = self.get_admin_context() if self.user.is_admin() else self.get_user_context()
             worker = AIAssistantWidget.ChatWorker(
                 self.gemini_service,
                 question,
