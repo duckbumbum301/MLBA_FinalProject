@@ -4,6 +4,7 @@ Service xử lý truy vấn database (customers, predictions_log)
 """
 import json
 from typing import List, Optional, Dict
+from datetime import datetime
 from database.connector import DatabaseConnector
 from models.customer import Customer
 
@@ -153,6 +154,131 @@ class QueryService:
             })
         
         return predictions
+
+    # ===================== Aggregates for User Dashboard =====================
+    def get_risk_bucket_counts(self) -> Dict[str, int]:
+        """Đếm số lượng predictions theo các bucket xác suất"""
+        query = """
+            SELECT 
+                SUM(CASE WHEN probability >= 0 AND probability < 0.20 THEN 1 ELSE 0 END) AS b0_20,
+                SUM(CASE WHEN probability >= 0.20 AND probability < 0.40 THEN 1 ELSE 0 END) AS b20_40,
+                SUM(CASE WHEN probability >= 0.40 AND probability < 0.60 THEN 1 ELSE 0 END) AS b40_60,
+                SUM(CASE WHEN probability >= 0.60 AND probability < 0.80 THEN 1 ELSE 0 END) AS b60_80,
+                SUM(CASE WHEN probability >= 0.80 AND probability <= 1.00 THEN 1 ELSE 0 END) AS b80_100
+            FROM predictions_log
+        """
+        row = self.db.fetch_one(query)
+        if not row:
+            return {'0_20': 0, '20_40': 0, '40_60': 0, '60_80': 0, '80_100': 0}
+        return {
+            '0_20': int(row[0] or 0),
+            '20_40': int(row[1] or 0),
+            '40_60': int(row[2] or 0),
+            '60_80': int(row[3] or 0),
+            '80_100': int(row[4] or 0),
+        }
+
+    def get_monthly_default_rate(self, months: int = 12) -> List[Dict]:
+        """Tính % default (predicted_label=1) theo tháng gần nhất, bổ sung các tháng thiếu với 0"""
+        # Lấy aggregate theo tháng hiện có
+        query = """
+            SELECT DATE_FORMAT(created_at,'%Y-%m') AS ym,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN predicted_label = 1 THEN 1 ELSE 0 END) AS defaults
+            FROM predictions_log
+            GROUP BY ym
+            ORDER BY ym ASC
+        """
+        rows = self.db.fetch_all(query)
+        agg = {r[0]: (int(r[1] or 0), int(r[2] or 0)) for r in rows}
+        # Tạo danh sách tháng liên tục
+        keys = []
+        now = datetime.now()
+        y = now.year; m = now.month
+        for _ in range(months):
+            keys.append(f"{y}-{m:02d}")
+            m -= 1
+            if m == 0:
+                m = 12; y -= 1
+        keys.reverse()
+        result = []
+        for k in keys:
+            total, defaults = agg.get(k, (0, 0))
+            rate = (defaults / total) if total > 0 else 0.0
+            result.append({'period': k, 'rate': rate})
+        return result
+
+    def get_quarterly_high_risk_rate(self, quarters: int = 8, threshold: float = 0.60) -> List[Dict]:
+        """Tính % high-risk theo quý (probability >= threshold), bổ sung quý thiếu với 0"""
+        query = """
+            SELECT YEAR(created_at) AS y, QUARTER(created_at) AS q,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN probability >= %s THEN 1 ELSE 0 END) AS high
+            FROM predictions_log
+            GROUP BY y, q
+            ORDER BY y ASC, q ASC
+        """
+        rows = self.db.fetch_all(query, (threshold,))
+        agg = {f"{int(r[0])}-Q{int(r[1])}": (int(r[2] or 0), int(r[3] or 0)) for r in rows}
+        # Tạo danh sách quý liên tục
+        keys = []
+        now = datetime.now()
+        y = now.year; q = (now.month - 1)//3 + 1
+        for _ in range(quarters):
+            keys.append(f"{y}-Q{q}")
+            q -= 1
+            if q == 0:
+                q = 4; y -= 1
+        keys.reverse()
+        result = []
+        for k in keys:
+            total, high = agg.get(k, (0, 0))
+            rate = (high / total) if total > 0 else 0.0
+            result.append({'period': k, 'rate': rate})
+        return result
+
+    def get_demographics_counts(self) -> tuple:
+        """Lấy thống kê số lượng khách hàng theo Gender, Marriage, Education"""
+        # Gender
+        rows = self.db.fetch_all("SELECT SEX, COUNT(*) FROM customers GROUP BY SEX")
+        gender_map = {self._map_sex_label(r[0]): int(r[1]) for r in rows}
+        # Marriage
+        rows = self.db.fetch_all("SELECT MARRIAGE, COUNT(*) FROM customers GROUP BY MARRIAGE")
+        marriage_map = {self._map_marriage_label(r[0]): int(r[1]) for r in rows}
+        # Education
+        rows = self.db.fetch_all("SELECT EDUCATION, COUNT(*) FROM customers GROUP BY EDUCATION")
+        education_map = {self._map_education_label(r[0]): int(r[1]) for r in rows}
+        return gender_map, marriage_map, education_map
+
+    def get_prediction_stats(self) -> Dict:
+        query = """
+            SELECT 
+                COUNT(*) AS total_predictions,
+                SUM(CASE WHEN probability >= 0.60 THEN 1 ELSE 0 END) AS high_risk_count,
+                AVG(probability) AS avg_probability
+            FROM predictions_log
+        """
+        row = self.db.fetch_one(query)
+        if not row:
+            return {'total_predictions': 0, 'high_risk_count': 0, 'avg_probability': 0.0}
+        return {
+            'total_predictions': int(row[0] or 0),
+            'high_risk_count': int(row[1] or 0),
+            'avg_probability': float(row[2] or 0.0)
+        }
+
+    # ===================== Label mapping helpers =====================
+    @staticmethod
+    def _map_sex_label(code: int) -> str:
+        return {1: 'Nam', 2: 'Nữ'}.get(code, str(code))
+
+    @staticmethod
+    def _map_marriage_label(code: int) -> str:
+        return {1: 'Kết hôn', 2: 'Độc thân', 3: 'Khác'}.get(code, str(code))
+
+    @staticmethod
+    def _map_education_label(code: int) -> str:
+        return {1: 'Cao học', 2: 'Đại học', 3: 'Trung học', 4: 'Khác'}.get(code, str(code))
 
     def get_customers_by_probability_range(self, min_prob: float, max_prob: Optional[float] = None, limit: int = 50) -> List[Dict]:
         query = """

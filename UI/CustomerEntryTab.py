@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QFormLayout, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QTableWidget, QTableWidgetItem
+from PyQt6.QtWidgets import QWidget, QFormLayout, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QScrollArea
+from PyQt6.QtCore import Qt
 from pathlib import Path
 import sys
 base_dir = Path(__file__).resolve().parent
@@ -22,7 +23,10 @@ class CustomerEntryTab(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
-        self.layout = QVBoxLayout()
+        root = QVBoxLayout(self)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        content = QWidget(); self.layout = QVBoxLayout(content); self.layout.setContentsMargins(16,16,16,16); self.layout.setSpacing(16)
         header = QHBoxLayout()
         self.searchBox = QLineEdit(); self.searchBox.setPlaceholderText('Tìm theo tên hoặc CMND/CCCD')
         btnSearch = QPushButton('Tìm'); btnSearch.clicked.connect(self.search_customers)
@@ -62,7 +66,8 @@ class CustomerEntryTab(QWidget):
         self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(['ID','Full Name','Citizen ID','Sex','Education','Marriage','Age'])
         self.layout.addWidget(self.table)
-        self.setLayout(self.layout)
+        scroll.setWidget(content)
+        root.addWidget(scroll)
 
     def save_customer(self):
         if Customer is None:

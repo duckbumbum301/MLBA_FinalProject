@@ -43,11 +43,32 @@ QLineEdit { height: 34px; }
 /* Navbar */
 #NavBar { background: #ffffff; border-bottom: 1px solid #dfe6ee; padding: 10px 16px; }
 #NavBar QLabel { color: #2c3e50; }
-#NavBar QPushButton#NavItem { background: transparent; color: #2c3e50; padding: 8px 12px; border-radius: 8px; }
+#NavBar QPushButton#NavItem { background: transparent; color: #2c3e50; padding: 8px 12px; border-radius: 8px; font-size: 17px; }
 #NavBar QPushButton#NavItem:hover { background: #eef3f8; color: #2663ea; }
-#NavBar QPushButton#AiButton { background: transparent; color: #2c3e50; padding: 0; border: none; min-width: 36px; min-height: 36px; }
+#NavBar QPushButton#NavItem:checked { background: #eef3f8; color: #2663ea; }
+#NavBar QPushButton#AiButton { background: transparent; color: #2c3e50; padding: 0; border: none; min-width: 44px; min-height: 44px; }
 #NavBar QPushButton#AiButton:hover { background: transparent; }
 #NavBar QLineEdit#SearchBox { padding: 6px 10px; border: 1px solid #dfe6ee; border-radius: 8px; min-width: 240px; }
-QLabel#Heading2 { font-family: 'Poppins','Segoe UI','Arial'; font-size: 27px; font-weight: 700; color: #ffffff; }
-QLabel#Heading3 { font-family: 'Poppins','Segoe UI','Arial'; font-size: 23px; font-weight: 700; color: #2c3e50; }
+QLabel#Heading2 { font-family: 'Poppins','Segoe UI','Arial'; font-size: 25px; font-weight: 700; color: #ffffff; }
+QLabel#Heading3 { font-family: 'Poppins','Segoe UI','Arial'; font-size: 20px; font-weight: 700; color: #2663ea; }
+/* Footer */
+#Footer { background: #f7f9fc; border-top: 1px solid #dfe6ee; padding: 8px 16px; }
+#Footer QLabel { color: #6b778c; font-family: 'Inter','Segoe UI','Arial'; font-size: 16px; }
+#Footer QLabel#FooterBrand { color: #2663ea; font-weight: 700; }
+/* Dashboard */
+#DashboardCardBlue { background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 #8ABCF6, stop:1 #2F80ED); border: none; border-radius: 16px; }
+#DashboardCardBlue QLabel#KpiTitle { color: #ffffff; font-family: 'Inter','Segoe UI','Arial'; font-size: 14px; }
+#DashboardCardBlue QLabel#KpiValue { color: #ffffff; font-family: 'Poppins','Segoe UI','Arial'; font-size: 24px; font-weight: 700; }
+
+#DashboardCardRed { background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 #F7C5C5, stop:1 #EB5757); border: none; border-radius: 16px; }
+#DashboardCardRed QLabel#KpiTitle { color: #ffffff; font-family: 'Inter','Segoe UI','Arial'; font-size: 14px; }
+#DashboardCardRed QLabel#KpiValue { color: #ffffff; font-family: 'Poppins','Segoe UI','Arial'; font-size: 24px; font-weight: 700; }
+
+#DashboardCardYellow { background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 #FFF1CC, stop:1 #F2C94C); border: none; border-radius: 16px; }
+#DashboardCardYellow QLabel#KpiTitle { color: #6b778c; font-family: 'Inter','Segoe UI','Arial'; font-size: 14px; }
+#DashboardCardYellow QLabel#KpiValue { color: #2c3e50; font-family: 'Poppins','Segoe UI','Arial'; font-size: 24px; font-weight: 700; }
+
+#ChartCard { background: #ffffff; border: 1px solid #dfe6ee; border-radius: 16px; }
+#ChartCard QLabel#ChartTitle { color: #2c3e50; font-family: 'Poppins','Segoe UI','Arial'; font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+#ChartCard QLabel#HealthItem { color: #2c3e50; font-family: 'Inter','Segoe UI','Arial'; font-size: 14px; }
 """

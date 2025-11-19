@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QTableWidget, QTableWidgetItem
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QScrollArea
+from PyQt6.QtCore import Qt
 from PyQt6.QtCore import Qt
 import sys
 from pathlib import Path
@@ -22,7 +23,10 @@ class ReportTab(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
-        layout = QVBoxLayout()
+        root = QVBoxLayout(self)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        content = QWidget(); layout = QVBoxLayout(content); layout.setContentsMargins(16,16,16,16); layout.setSpacing(16)
         filters = QHBoxLayout()
         self.cmb_time = QComboBox()
         self.cmb_time.addItems(['Hôm nay', 'Tuần này', 'Tháng này'])
@@ -50,7 +54,8 @@ class ReportTab(QWidget):
         self.info.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.info.setText('Chế độ: dữ liệu của tôi' if self.view_mode == 'own_data_only' else 'Chế độ: tất cả')
         layout.addWidget(self.info)
-        self.setLayout(layout)
+        scroll.setWidget(content)
+        root.addWidget(scroll)
 
     def load_recent(self):
         try:

@@ -8,8 +8,10 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout,
     QLineEdit, QComboBox, QDoubleSpinBox, QPushButton, QLabel,
     QCheckBox, QMessageBox, QScrollArea, QRadioButton, QButtonGroup,
-    QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy
+    QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy,
+    QApplication, QProgressDialog
 )
+from PyQt6.QtCore import Qt
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
 import random
@@ -104,6 +106,7 @@ class PredictionTabWidget(QWidget):
         # Scroll area để chứa nhiều input
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
         
@@ -118,10 +121,11 @@ class PredictionTabWidget(QWidget):
         group_payment_history.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         group_billing.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
-        row_layout = QHBoxLayout()
+        row_layout = QHBoxLayout(); row_layout.setSpacing(16)
         row_layout.addWidget(group_payment_history)
         row_layout.addWidget(group_billing)
         scroll_layout.addLayout(row_layout)
+        scroll_layout.setSpacing(16)
         
         scroll.setWidget(scroll_content)
         main_layout.addWidget(scroll)
@@ -740,6 +744,7 @@ class PredictionTabWidget(QWidget):
         if not self.user.is_admin():
             return
         
+        progress = None
         try:
             # Collect input
             input_dict = self.collect_input()
@@ -750,14 +755,18 @@ class PredictionTabWidget(QWidget):
             results = {}
             errors = []
             
-            # Progress dialog
-            progress = QMessageBox(self)
+            progress = QProgressDialog("Vui lòng đợi trong khi hệ thống chạy 8 models", "Hủy", 0, len(models), self)
             progress.setWindowTitle("Đang so sánh models...")
-            progress.setText("Vui lòng đợi trong khi hệ thống chạy 8 models")
-            progress.setStandardButtons(QMessageBox.StandardButton.NoButton)
+            progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+            progress.setMinimumDuration(0)
+            progress.setAutoClose(True)
+            progress.setAutoReset(True)
             progress.show()
-            
-            for model_name in models:
+
+            for i, model_name in enumerate(models):
+                if progress.wasCanceled():
+                    errors.append("Đã hủy bởi người dùng")
+                    break
                 try:
                     service = MLService(model_name=model_name)
                     result = service.predict_default_risk(input_dict)
@@ -767,14 +776,20 @@ class PredictionTabWidget(QWidget):
                     errors.append(f"{model_name}: {str(e)}")
                     results[model_name] = None
                     print(f"✗ {model_name}: {e}")
-            
-            progress.close()
+                progress.setValue(i + 1)
+                QApplication.processEvents()
             
             # Hiển thị kết quả
             self.show_comparison_results(results, errors)
         
         except Exception as e:
             QMessageBox.critical(self, "Lỗi", f"Lỗi khi so sánh models: {str(e)}")
+        finally:
+            try:
+                if progress:
+                    progress.close()
+            except Exception:
+                pass
     
     def show_comparison_results(self, results: dict, errors: list):
         """Hiển thị kết quả so sánh trong dialog"""
