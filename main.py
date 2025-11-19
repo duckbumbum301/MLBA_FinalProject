@@ -9,6 +9,9 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
 
+from UI.LoginPage import LoginPage
+from UI.MainWindow import MainWindow
+
 from PyQt6.QtWidgets import QApplication
 from UI.LoginPage import LoginPage
 from UI.MainWindow import MainWindow
@@ -64,8 +67,11 @@ def main():
     
     credit_app = CreditRiskApp()
     credit_app.start()
-    
-    sys.exit(app.exec())
+    try:
+        rc = app.exec()
+    except KeyboardInterrupt:
+        rc = 0
+    sys.exit(rc)
 
 
 if __name__ == '__main__':

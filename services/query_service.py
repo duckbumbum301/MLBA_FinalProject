@@ -22,6 +22,12 @@ class QueryService:
             db_connector: Instance DatabaseConnector
         """
         self.db = db_connector
+        try:
+            from pathlib import Path
+            self._project_root = Path(__file__).resolve().parents[1]
+            self._eval_path = self._project_root / 'outputs' / 'evaluation' / 'evaluation_data.npz'
+        except Exception:
+            self._eval_path = None
     
     def save_customer(self, customer: Customer) -> Optional[int]:
         """
@@ -232,6 +238,7 @@ class QueryService:
 
     def get_quarterly_high_risk_rate(self, quarters: int = 8, threshold: float = 0.60) -> List[Dict]:
         """Tính % high-risk theo quý (probability >= threshold), bổ sung quý thiếu với 0"""
+        thr = self._get_dashboard_threshold_override(threshold)
         query = """
             SELECT YEAR(created_at) AS y, QUARTER(created_at) AS q,
                    COUNT(*) AS total,
@@ -240,7 +247,7 @@ class QueryService:
             GROUP BY y, q
             ORDER BY y ASC, q ASC
         """
-        rows = self.db.fetch_all(query, (threshold,))
+        rows = self.db.fetch_all(query, (thr,))
         agg = {f"{int(r[0])}-Q{int(r[1])}": (int(r[2] or 0), int(r[3] or 0)) for r in rows}
         # Tạo danh sách quý liên tục
         keys = []
@@ -258,6 +265,20 @@ class QueryService:
             rate = (high / total) if total > 0 else 0.0
             result.append({'period': k, 'rate': rate})
         return result
+
+    def _get_dashboard_threshold_override(self, default_thr: float = 0.60) -> float:
+        try:
+            if not self._eval_path or not self._eval_path.exists():
+                return float(default_thr)
+            import numpy as np
+            data = np.load(self._eval_path, allow_pickle=True)
+            ov = data.get('dashboard_threshold', None)
+            if ov is None:
+                return float(default_thr)
+            d = ov.item() if hasattr(ov, 'item') else ov
+            return float(d.get('value', default_thr))
+        except Exception:
+            return float(default_thr)
 
     def get_weekly_default_rate(self, weeks: int = 8) -> List[Dict]:
         query = """
