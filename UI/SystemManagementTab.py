@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, QTableWidget, QTableWidgetItem, QMessageBox, QScrollArea, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, QTableWidget, QTableWidgetItem, QMessageBox, QScrollArea, QSizePolicy, QHeaderView
 from PyQt6.QtCore import Qt
 import matplotlib
 matplotlib.use('QtAgg')
@@ -17,6 +17,7 @@ class SystemManagementTab(QWidget):
     def _init_paths(self):
         self.project_root = Path(__file__).resolve().parents[1]
         self.eval_path = self.project_root / 'outputs' / 'evaluation' / 'evaluation_data.npz'
+        self.support_path = self.project_root / 'outputs' / 'system' / 'forgot_requests.json'
         # Integration helpers
         try:
             from .integration import get_db_connector, get_query_service
@@ -39,29 +40,31 @@ class SystemManagementTab(QWidget):
 
         # ========== Model Settings ==========
         section0 = QVBoxLayout()
-        section0.addWidget(QLabel('Thiết lập mô hình'))
+        lblTitleModel = QLabel('Thiết lập mô hình'); lblTitleModel.setObjectName('SectionTitle'); section0.addWidget(lblTitleModel)
         row0 = QHBoxLayout()
         self.cmbModel = QComboBox(); self.cmbModel.addItems(['XGBoost','LightGBM','LogisticRegression'])
-        row0.addWidget(QLabel('Model:'))
+        lblModel = QLabel('Model:'); lblModel.setStyleSheet('font-weight:600')
+        row0.addWidget(lblModel)
         row0.addWidget(self.cmbModel)
         row0.addStretch()
         section0.addLayout(row0)
 
         # Threshold editor
         row0b = QHBoxLayout()
-        row0b.addWidget(QLabel('Ngưỡng rủi ro (threshold):'))
+        lblThr = QLabel('Ngưỡng rủi ro (threshold):'); lblThr.setStyleSheet('font-weight:600')
+        row0b.addWidget(lblThr)
         self.spnThreshold = QDoubleSpinBox(); self.spnThreshold.setRange(0.0,1.0); self.spnThreshold.setSingleStep(0.01)
         self.spnThreshold.setDecimals(2)
         current_thr = self._load_threshold(self.cmbModel.currentText())
         self.spnThreshold.setValue(current_thr)
         row0b.addWidget(self.spnThreshold)
-        btnApply = QPushButton('Áp dụng'); btnApply.clicked.connect(self.apply_settings)
+        btnApply = QPushButton('Áp dụng'); btnApply.setObjectName('Primary'); btnApply.clicked.connect(self.apply_settings)
         row0b.addWidget(btnApply)
-        btnRecompute = QPushButton('Recompute metrics'); btnRecompute.clicked.connect(self.recompute_dashboard_metrics)
+        btnRecompute = QPushButton('Recompute metrics'); btnRecompute.setObjectName('Primary'); btnRecompute.clicked.connect(self.recompute_dashboard_metrics)
         row0b.addWidget(btnRecompute)
         # Active model controls
         if self._ModelManagementService:
-            btnSetActive = QPushButton('Set Active Model'); btnSetActive.clicked.connect(self.set_active_model)
+            btnSetActive = QPushButton('Set Active Model'); btnSetActive.setObjectName('Secondary'); btnSetActive.clicked.connect(self.set_active_model)
             row0b.addWidget(btnSetActive)
             self.lblActive = QLabel('')
             row0b.addWidget(self.lblActive)
@@ -69,18 +72,21 @@ class SystemManagementTab(QWidget):
 
         # Business Rules overlay
         row0c = QHBoxLayout()
-        row0c.addWidget(QLabel('Overlay: α'))
+        lblAlpha = QLabel('Overlay: α'); lblAlpha.setStyleSheet('font-weight:600')
+        row0c.addWidget(lblAlpha)
         self.spnAlpha = QDoubleSpinBox(); self.spnAlpha.setRange(0.0, 3.0); self.spnAlpha.setSingleStep(0.05); self.spnAlpha.setDecimals(2)
         row0c.addWidget(self.spnAlpha)
-        row0c.addWidget(QLabel('β'))
+        lblBeta = QLabel('β'); lblBeta.setStyleSheet('font-weight:600')
+        row0c.addWidget(lblBeta)
         self.spnBeta = QDoubleSpinBox(); self.spnBeta.setRange(0.0, 3.0); self.spnBeta.setSingleStep(0.05); self.spnBeta.setDecimals(2)
         row0c.addWidget(self.spnBeta)
-        row0c.addWidget(QLabel('Feature'))
+        lblFeat = QLabel('Feature'); lblFeat.setStyleSheet('font-weight:600')
+        row0c.addWidget(lblFeat)
         self.cmbOverlayFeature = QComboBox(); self.cmbOverlayFeature.addItems(['NONE','AGE','LIMIT_BAL','PAY_0'])
         row0c.addWidget(self.cmbOverlayFeature)
-        self.btnApplyOverlay = QPushButton('Áp dụng Overlay'); self.btnApplyOverlay.clicked.connect(self.apply_overlay)
+        self.btnApplyOverlay = QPushButton('Áp dụng Overlay'); self.btnApplyOverlay.setObjectName('Primary'); self.btnApplyOverlay.clicked.connect(self.apply_overlay)
         row0c.addWidget(self.btnApplyOverlay)
-        btnResetOverlay = QPushButton('Reset Overlay'); btnResetOverlay.clicked.connect(self.reset_overlay)
+        btnResetOverlay = QPushButton('Reset Overlay'); btnResetOverlay.setObjectName('Secondary'); btnResetOverlay.clicked.connect(self.reset_overlay)
         row0c.addWidget(btnResetOverlay)
         # Load current overlay
         a,b,f,en = self._load_overlay()
@@ -92,38 +98,69 @@ class SystemManagementTab(QWidget):
 
         # Models table
         sectionModels = QVBoxLayout()
-        sectionModels.addWidget(QLabel('Danh sách mô hình'))
+        lblModels = QLabel('Danh sách mô hình'); lblModels.setObjectName('SectionTitle'); sectionModels.addWidget(lblModels)
         self.tblModels = QTableWidget(0, 9)
         self.tblModels.setHorizontalHeaderLabels(['Model','Type','Algo','AUC','Acc','F1','Active','Size(MB)','Threshold'])
         self.tblModels.setMinimumHeight(220)
         self.tblModels.setAlternatingRowColors(True)
+        try:
+            self.tblModels.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        except Exception:
+            pass
         sectionModels.addWidget(self.tblModels)
         layout.addLayout(sectionModels)
 
         # Threshold Audit table
         sectionAudit = QVBoxLayout()
-        sectionAudit.addWidget(QLabel('Threshold Audit'))
+        lblAudit = QLabel('Threshold Audit'); lblAudit.setObjectName('SectionTitle'); sectionAudit.addWidget(lblAudit)
         self.tblAudit = QTableWidget(0, 4)
         self.tblAudit.setHorizontalHeaderLabels(['Thời điểm','Model','Giá trị','User'])
         self.tblAudit.setMinimumHeight(160)
         self.tblAudit.setAlternatingRowColors(True)
+        try:
+            self.tblAudit.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        except Exception:
+            pass
         btnAuditRefresh = QPushButton('Refresh Audit'); btnAuditRefresh.clicked.connect(self._load_threshold_audit)
+        btnAuditRefresh.setObjectName('Primary')
         sectionAudit.addWidget(self.tblAudit)
         sectionAudit.addWidget(btnAuditRefresh)
         layout.addLayout(sectionAudit)
 
+        # Support requests section
+        sectionSupport = QVBoxLayout()
+        lblSupport = QLabel('Yêu cầu hỗ trợ'); lblSupport.setObjectName('SectionTitle'); sectionSupport.addWidget(lblSupport)
+        self.lblSupportNotice = QLabel('')
+        sectionSupport.addWidget(self.lblSupportNotice)
+        self.tblSupport = QTableWidget(0, 4)
+        self.tblSupport.setHorizontalHeaderLabels(['Họ tên','Email','User','Thời điểm'])
+        self.tblSupport.setMinimumHeight(160)
+        try:
+            self.tblSupport.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        except Exception:
+            pass
+        rowSup = QHBoxLayout()
+        btnSupportRefresh = QPushButton('Refresh'); btnSupportRefresh.setObjectName('Secondary'); btnSupportRefresh.clicked.connect(self._load_support_requests)
+        btnSupportResolve = QPushButton('Mark Resolved'); btnSupportResolve.setObjectName('Primary'); btnSupportResolve.clicked.connect(self._resolve_selected_support)
+        rowSup.addWidget(btnSupportRefresh); rowSup.addWidget(btnSupportResolve)
+        sectionSupport.addWidget(self.tblSupport)
+        sectionSupport.addLayout(rowSup)
+        layout.addLayout(sectionSupport)
+
         section1 = QVBoxLayout()
-        section1.addWidget(QLabel('Phát hiện dữ liệu bất thường'))
+        lblOut = QLabel('Phát hiện dữ liệu bất thường'); lblOut.setObjectName('SectionTitle'); section1.addWidget(lblOut)
         row1 = QHBoxLayout()
         method = QComboBox()
         method.addItems(['Isolation Forest'])
         threshold = QSpinBox()
         threshold.setRange(0, 100)
         threshold.setValue(5)
-        btn_scan = QPushButton('Scan Database')
-        row1.addWidget(QLabel('Method:'))
+        btn_scan = QPushButton('Scan Database'); btn_scan.setObjectName('Primary')
+        lblMethod = QLabel('Method:'); lblMethod.setStyleSheet('font-weight:600')
+        row1.addWidget(lblMethod)
         row1.addWidget(method)
-        row1.addWidget(QLabel('Threshold:'))
+        lblThresh2 = QLabel('Threshold:'); lblThresh2.setStyleSheet('font-weight:600')
+        row1.addWidget(lblThresh2)
         row1.addWidget(threshold)
         row1.addWidget(btn_scan)
         section1.addLayout(row1)
@@ -133,26 +170,32 @@ class SystemManagementTab(QWidget):
         self.table1.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         section1.addWidget(self.table1)
         self.table1.setAlternatingRowColors(True)
+        try:
+            self.table1.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        except Exception:
+            pass
         row2 = QHBoxLayout()
-        btnDelete = QPushButton('Delete Selected'); btnDelete.clicked.connect(self.delete_selected_outliers)
-        btnExport = QPushButton('Export Outliers'); btnExport.clicked.connect(self.export_outliers)
+        btnDelete = QPushButton('Delete Selected'); btnDelete.setObjectName('Danger'); btnDelete.clicked.connect(self.delete_selected_outliers)
+        btnExport = QPushButton('Export Outliers'); btnExport.setObjectName('Secondary'); btnExport.clicked.connect(self.export_outliers)
         row2.addWidget(btnDelete)
         row2.addWidget(btnExport)
         section1.addLayout(row2)
         layout.addLayout(section1)
         section2 = QVBoxLayout()
-        section2.addWidget(QLabel('Phân cụm khách hàng'))
+        lblCluster = QLabel('Phân cụm khách hàng'); lblCluster.setObjectName('SectionTitle'); section2.addWidget(lblCluster)
         row3 = QHBoxLayout()
         algo = QComboBox()
         algo.addItems(['K-Means'])
         self.clusters = QSpinBox()
         self.clusters.setRange(2, 10)
         self.clusters.setValue(4)
-        row3.addWidget(QLabel('Algorithm:'))
+        lblAlgo = QLabel('Algorithm:'); lblAlgo.setStyleSheet('font-weight:600')
+        row3.addWidget(lblAlgo)
         row3.addWidget(algo)
-        row3.addWidget(QLabel('Clusters:'))
+        lblClusters = QLabel('Clusters:'); lblClusters.setStyleSheet('font-weight:600')
+        row3.addWidget(lblClusters)
         row3.addWidget(self.clusters)
-        btn_run = QPushButton('Run')
+        btn_run = QPushButton('Run'); btn_run.setObjectName('Primary')
         btn_scan.clicked.connect(lambda: self.run_outlier_scan(threshold.value()))
         btn_run.clicked.connect(self.run_kmeans)
         row3.addWidget(btn_run)
@@ -168,6 +211,8 @@ class SystemManagementTab(QWidget):
         self.cmbModel.currentTextChanged.connect(self.on_model_changed)
         self._load_models_table()
         self._load_threshold_audit()
+        self._load_support_requests()
+        self._apply_styles()
 
     def load_dataset(self) -> pd.DataFrame:
         try:
@@ -256,11 +301,11 @@ class SystemManagementTab(QWidget):
         val = float(self.spnThreshold.value())
         ok = self._save_threshold(name, val)
         if ok:
-            QMessageBox.information(self, 'Thành công', f'Đã cập nhật threshold cho {name}: {val:.2f}')
+            self._show_msg(f"Đã cập nhật <b>threshold</b> cho <b>{name}</b>: {val:.2f}", 'Thành công', 'success')
             self._load_models_table()
             self._load_threshold_audit()
         else:
-            QMessageBox.critical(self, 'Lỗi', 'Không thể lưu thiết lập. Vui lòng thử lại.')
+            self._show_msg('Không thể lưu thiết lập. Vui lòng thử lại.', 'Lỗi', 'error')
 
     def apply_overlay(self):
         a = float(self.spnAlpha.value())
@@ -268,9 +313,9 @@ class SystemManagementTab(QWidget):
         f = self.cmbOverlayFeature.currentText()
         ok = self._save_overlay(a,b,f)
         if ok:
-            QMessageBox.information(self, 'Thành công', f'Đã cập nhật overlay: α={a:.2f}, β={b:.2f}, feature={f}')
+            self._show_msg(f"Đã cập nhật <b>overlay</b>: α={a:.2f}, β={b:.2f}, feature=<b>{f}</b>", 'Thành công', 'success')
         else:
-            QMessageBox.critical(self, 'Lỗi', 'Không thể lưu overlay.')
+            self._show_msg('Không thể lưu overlay.', 'Lỗi', 'error')
 
     def _load_threshold_audit(self):
         try:
@@ -323,9 +368,9 @@ class SystemManagementTab(QWidget):
                     mw.dashboard_tab.refresh_dashboard()
             except Exception:
                 pass
-            QMessageBox.information(self, 'Thành công', f'Đã tái tính theo threshold hiện tại: {thr:.2f}')
+            self._show_msg(f'Đã tái tính theo <b>threshold</b> hiện tại: {thr:.2f}', 'Thành công', 'success')
         except Exception as e:
-            QMessageBox.critical(self, 'Lỗi', f'Không thể tái tính: {e}')
+            self._show_msg(f'Không thể tái tính: {e}', 'Lỗi', 'error')
 
     def run_outlier_scan(self, threshold_percent: int):
         df = self.load_dataset()
@@ -379,16 +424,16 @@ class SystemManagementTab(QWidget):
     def export_outliers(self):
         try:
             if not getattr(self, '_outliers', None):
-                QMessageBox.information(self, 'Thông báo', 'Chưa có danh sách outliers. Vui lòng Scan trước.')
+                self._show_msg('Chưa có danh sách outliers. Vui lòng Scan trước.', 'Thông báo', 'info')
                 return
             ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             out_dir = self.project_root / 'outputs' / 'evaluation'
             out_dir.mkdir(parents=True, exist_ok=True)
             path = out_dir / f'outliers_{ts}.csv'
             pd.DataFrame(self._outliers).to_csv(path, index=False)
-            QMessageBox.information(self, 'Thành công', f'Đã export: {path}')
+            self._show_msg(f'Đã export: <b>{path}</b>', 'Thành công', 'success')
         except Exception as e:
-            QMessageBox.critical(self, 'Lỗi', f'Không thể export: {e}')
+            self._show_msg(f'Không thể export: {e}', 'Lỗi', 'error')
 
     def delete_selected_outliers(self):
         try:
@@ -413,14 +458,14 @@ class SystemManagementTab(QWidget):
                 )
                 count += 1
             db.close()
-            QMessageBox.information(self, 'Thành công', f'Đã ghi log xóa {count} outliers (soft-delete).')
+            self._show_msg(f'Đã ghi <b>log xóa</b> {count} outliers (soft-delete).', 'Thành công', 'success')
         except Exception as e:
-            QMessageBox.critical(self, 'Lỗi', f'Không thể xóa: {e}')
+            self._show_msg(f'Không thể xóa: {e}', 'Lỗi', 'error')
 
     def set_active_model(self):
         try:
             if not self._ModelManagementService:
-                QMessageBox.critical(self, 'Lỗi', 'ModelManagementService không khả dụng')
+                self._show_msg('ModelManagementService không khả dụng', 'Lỗi', 'error')
                 return
             db = self._get_db_connector()
             svc = self._ModelManagementService(db)
@@ -430,11 +475,89 @@ class SystemManagementTab(QWidget):
             if ok:
                 self.lblActive.setText(f'Active: {name}')
                 self._load_models_table()
-                QMessageBox.information(self, 'Thành công', f'Đã set active model: {name}')
+                self._show_msg(f'Đã set <b>active model</b>: {name}', 'Thành công', 'success')
             else:
-                QMessageBox.critical(self, 'Lỗi', 'Không thể set active model')
+                self._show_msg('Không thể set active model', 'Lỗi', 'error')
         except Exception as e:
-            QMessageBox.critical(self, 'Lỗi', f'Không thể set active: {e}')
+            self._show_msg(f'Không thể set active: {e}', 'Lỗi', 'error')
+
+    def _apply_styles(self):
+        try:
+            self.setStyleSheet(
+                """
+                QLabel#SectionTitle { font-weight: 700; color: #1e2a44; background-color: #00bfff; padding: 6px 10px; border-radius: 8px; border: 1px solid #d7e3ff; }
+                QPushButton#Primary { background-color: #2663ea; color: #ffffff; padding: 6px 14px; border-radius: 8px; }
+                QPushButton#Primary:hover { background-color: #1e56c9; }
+                QPushButton#Secondary { background-color: #f0f4ff; color: #1e2a44; padding: 6px 14px; border-radius: 8px; border: 1px solid #d3d9e8; }
+                QPushButton#Secondary:hover { background-color: #e6edff; }
+                QPushButton#Danger { background-color: #e74c3c; color: #ffffff; padding: 6px 14px; border-radius: 8px; }
+                QPushButton#Danger:hover { background-color: #cf3f30; }
+                QTableWidget { background-color: #ffffff; border: 1px solid #e5eaf3; border-radius: 8px; }
+                QHeaderView::section { background-color: #f7f9fc; padding: 6px; border: 1px solid #e5eaf3; font-weight: 600; }
+                """
+            )
+        except Exception:
+            pass
+
+    def _show_msg(self, text: str, title: str = 'Thông báo', kind: str = 'info'):
+        box = QMessageBox(self)
+        if kind == 'success':
+            box.setIcon(QMessageBox.Icon.Information)
+        elif kind == 'error':
+            box.setIcon(QMessageBox.Icon.Critical)
+        else:
+            box.setIcon(QMessageBox.Icon.Information)
+        box.setWindowTitle(title)
+        box.setText(f"<div style='font-size:14px; color:#1e2a44'>{text}</div>")
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        box.setStyleSheet(
+            """
+            QMessageBox { background-color: #ffffff; border: 1px solid #e5eaf3; border-radius: 12px; }
+            QLabel { color: #1e2a44; font-size: 14px; }
+            QPushButton { background-color: #2663ea; color: #ffffff; padding: 6px 16px; border-radius: 8px; min-width: 84px; }
+            QPushButton:hover { background-color: #1e56c9; }
+            """
+        )
+        box.exec()
+
+    def _load_support_requests(self):
+        try:
+            import json
+            self.tblSupport.setRowCount(0)
+            pending = []
+            if self.support_path.exists():
+                items = json.loads(self.support_path.read_text(encoding='utf-8'))
+                pending = [i for i in items if i.get('status') == 'pending']
+            self.lblSupportNotice.setText(f"Có {len(pending)} yêu cầu quên mật khẩu đang chờ duyệt")
+            self.tblSupport.setRowCount(len(pending))
+            for i, r in enumerate(pending):
+                self.tblSupport.setItem(i,0, QTableWidgetItem(str(r.get('full_name',''))))
+                self.tblSupport.setItem(i,1, QTableWidgetItem(str(r.get('email',''))))
+                self.tblSupport.setItem(i,2, QTableWidgetItem(str(r.get('username',''))))
+                self.tblSupport.setItem(i,3, QTableWidgetItem(str(r.get('ts',''))))
+        except Exception as e:
+            print(f"✗ Load support requests failed: {e}")
+
+    def _resolve_selected_support(self):
+        try:
+            import json
+            row = self.tblSupport.currentRow()
+            if row < 0:
+                return
+            email = self.tblSupport.item(row,1).text()
+            name = self.tblSupport.item(row,0).text()
+            if not self.support_path.exists():
+                return
+            items = json.loads(self.support_path.read_text(encoding='utf-8'))
+            for i in items:
+                if i.get('email') == email and i.get('full_name') == name and i.get('status') == 'pending':
+                    i['status'] = 'resolved'
+                    break
+            self.support_path.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding='utf-8')
+            self._load_support_requests()
+            self._show_msg('Đã đánh dấu xử lý yêu cầu', 'Thành công', 'success')
+        except Exception as e:
+            self._show_msg(f'Không thể cập nhật: {e}', 'Lỗi', 'error')
     def _load_overlay(self):
         try:
             import numpy as np
@@ -477,9 +600,9 @@ class SystemManagementTab(QWidget):
             self.spnAlpha.setValue(1.0)
             self.spnBeta.setValue(0.0)
             self.cmbOverlayFeature.setCurrentIndex(self.cmbOverlayFeature.findText('NONE'))
-            QMessageBox.information(self, 'Thành công', 'Đã reset overlay về mặc định.')
+            self._show_msg('Đã reset <b>overlay</b> về mặc định.', 'Thành công', 'success')
         except Exception as e:
-            QMessageBox.critical(self, 'Lỗi', f'Không thể reset overlay: {e}')
+            self._show_msg(f'Không thể reset overlay: {e}', 'Lỗi', 'error')
 
     def _load_models_table(self):
         try:

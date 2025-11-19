@@ -71,15 +71,14 @@ class LoginPage(QWidget):
         form.addWidget(QLabel('Password'))
         form.addWidget(self.txtPassword)
         
-        # Signup link
-        signup_layout = QHBoxLayout()
-        signup_layout.addStretch()
-        signup_layout.addWidget(QLabel("Chưa có tài khoản?"))
-        btnSignupLink = QPushButton('Đăng ký ngay')
-        btnSignupLink.setObjectName('LinkButton')
-        btnSignupLink.clicked.connect(self.open_signup.emit)
-        signup_layout.addWidget(btnSignupLink)
-        form.addLayout(signup_layout)
+        # Forgot password link + popup
+        forgot_layout = QHBoxLayout(); forgot_layout.addStretch()
+        lblForgot = QLabel("Quên mật khẩu?")
+        btnAlt = QPushButton('Thử cách khác'); btnAlt.setObjectName('LinkButton')
+        forgot_layout.addWidget(lblForgot)
+        forgot_layout.addWidget(btnAlt)
+        form.addLayout(forgot_layout)
+        btnAlt.clicked.connect(self._open_alt_dialog)
         
         actions = QHBoxLayout(); actions.setSpacing(12)
         self.btnLogin = QPushButton('Sign In'); self.btnLogin.setObjectName('Primary')
@@ -117,6 +116,49 @@ class LoginPage(QWidget):
             db.close()
         except Exception as e:
             print(f"✗ Lỗi đăng nhập: {e}")
+
+    def _send_forgot_request(self, full_name: str, email: str, username: str, note: str) -> bool:
+        if not full_name or not email:
+            return False
+        try:
+            from pathlib import Path
+            import json, datetime
+            proj = Path(__file__).resolve().parents[1]
+            out_dir = proj / 'outputs' / 'system'
+            out_dir.mkdir(parents=True, exist_ok=True)
+            f = out_dir / 'forgot_requests.json'
+            items = []
+            if f.exists():
+                try:
+                    items = json.loads(f.read_text(encoding='utf-8'))
+                except Exception:
+                    items = []
+            items.append({
+                'full_name': full_name.strip(),
+                'email': email.strip(),
+                'username': username.strip(),
+                'note': note.strip(),
+                'ts': datetime.datetime.now().isoformat(),
+                'status': 'pending'
+            })
+            f.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding='utf-8')
+            return True
+        except Exception:
+            return False
+
+    def _open_alt_dialog(self):
+        from PyQt6.QtWidgets import QDialog
+        dlg = QDialog(self)
+        dlg.setWindowTitle('Hỗ trợ đặt lại mật khẩu')
+        lay = QVBoxLayout(dlg); lay.setContentsMargins(16,16,16,16); lay.setSpacing(8)
+        lay.addWidget(QLabel('Nhập thông tin để yêu cầu hỗ trợ đặt lại mật khẩu'))
+        full_name = QLineEdit(); full_name.setPlaceholderText('Họ và Tên'); lay.addWidget(full_name)
+        email = QLineEdit(); email.setPlaceholderText('Email'); lay.addWidget(email)
+        username = QLineEdit(); username.setPlaceholderText('User name (nếu nhớ)'); lay.addWidget(username)
+        note = QLineEdit(); note.setPlaceholderText('Ghi chú (tuỳ chọn)'); lay.addWidget(note)
+        btnSend = QPushButton('Gửi yêu cầu'); btnSend.setObjectName('Primary'); lay.addWidget(btnSend)
+        btnSend.clicked.connect(lambda: (self._send_forgot_request(full_name.text(), email.text(), username.text(), note.text()) and dlg.accept()))
+        dlg.exec()
 
     def do_login(self, expected_admin: bool):
         username = self.txtUsername.text().strip()
