@@ -79,35 +79,7 @@ class PredictionTabWidget(QWidget):
         
         main_layout.addLayout(currency_layout)
         
-        # === ADMIN: Model Selector ===
-        if self.user.is_admin():
-            model_selector_layout = QHBoxLayout()
-            model_selector_layout.addWidget(QLabel("🎯 Chọn Model:"))
-            
-            self.model_selector = QComboBox()
-            self.model_selector.addItems([
-                "XGBoost (Active)",
-                "LightGBM",
-                "CatBoost",
-                "RandomForest",
-                "Logistic",
-                "NeuralNet",
-                "Voting",
-                "Stacking"
-            ])
-            self.model_selector.setStyleSheet("""
-                QComboBox {
-                    padding: 5px;
-                    border: 2px solid #3498db;
-                    border-radius: 5px;
-                    font-weight: normal;
-                }
-            """)
-            model_selector_layout.addWidget(self.model_selector)
-            model_selector_layout.addStretch()
-            main_layout.addLayout(model_selector_layout)
-        else:
-            self.model_selector = None
+        self.model_selector = None
         
         # Scroll area để chứa nhiều input
         scroll = QScrollArea()
@@ -115,6 +87,8 @@ class PredictionTabWidget(QWidget):
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(12,12,12,12)
+        scroll_layout.setSpacing(16)
         
         # === GROUP 1: Thông tin cá nhân ===
         group_personal = self.create_personal_info_group()
@@ -130,14 +104,14 @@ class PredictionTabWidget(QWidget):
         row_layout = QHBoxLayout(); row_layout.setSpacing(16)
         row_layout.addWidget(group_payment_history)
         row_layout.addWidget(group_billing)
+        row_layout.setStretch(0,1); row_layout.setStretch(1,1)
         scroll_layout.addLayout(row_layout)
-        scroll_layout.setSpacing(16)
         
         scroll.setWidget(scroll_content)
         main_layout.addWidget(scroll)
         
         # === BUTTONS ===
-        button_layout = QHBoxLayout()
+        button_layout = QHBoxLayout(); button_layout.setSpacing(12)
         
         # CRUD Buttons
         self.btnSaveCustomer = QPushButton("💾 Lưu Khách Hàng")
@@ -206,7 +180,9 @@ class PredictionTabWidget(QWidget):
         main_layout.setContentsMargins(12,12,12,12)
         main_layout.addWidget(header)
         layout = QFormLayout()
-        layout.setContentsMargins(12,12,12,12)
+        layout.setHorizontalSpacing(12); layout.setVerticalSpacing(8)
+        layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
         # Customer name (optional)
         self.txtCustomerName = QLineEdit()
@@ -319,7 +295,9 @@ class PredictionTabWidget(QWidget):
         
         # === Form Layout cho payment fields ===
         form_layout = QFormLayout()
-        form_layout.setContentsMargins(12,12,12,12)
+        form_layout.setHorizontalSpacing(12); form_layout.setVerticalSpacing(8)
+        form_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
         self.pay_options = [
             "Không sử dụng",
@@ -354,7 +332,7 @@ class PredictionTabWidget(QWidget):
         ]
         
         for pay_field, month_label in self.month_mapping_12:
-            cmb = QComboBox()
+            cmb = QComboBox(); cmb.setMinimumWidth(180)
             cmb.addItems(self.pay_options)
             cmb.setCurrentIndex(1)  # Default: "Trả đúng hạn"
             cmb.setToolTip(f"Trạng thái thanh toán {month_label.lower()}")
@@ -443,7 +421,9 @@ class PredictionTabWidget(QWidget):
         
         # === Form Layout ===
         form_layout = QFormLayout()
-        form_layout.setContentsMargins(12,12,12,12)
+        form_layout.setHorizontalSpacing(12); form_layout.setVerticalSpacing(8)
+        form_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
         self.bill_amts = []
         self.pay_amts = []
@@ -463,7 +443,7 @@ class PredictionTabWidget(QWidget):
             row_layout.setSpacing(12)
 
             lbl_bill = QLabel(f"Số dư {month_label}:")
-            spn_bill = QDoubleSpinBox()
+            spn_bill = QDoubleSpinBox(); spn_bill.setMinimumWidth(160)
             spn_bill.setRange(-1000000 * self.EXCHANGE_RATE, 10000000 * self.EXCHANGE_RATE)
             spn_bill.setValue(0)
             spn_bill.setToolTip(f"Số dư sao kê {month_label.lower()}")
@@ -472,7 +452,7 @@ class PredictionTabWidget(QWidget):
             self.bill_amts.append(spn_bill)
 
             lbl_pay = QLabel(f"Thanh toán {month_label}:")
-            spn_pay = QDoubleSpinBox()
+            spn_pay = QDoubleSpinBox(); spn_pay.setMinimumWidth(160)
             spn_pay.setRange(0, 10000000 * self.EXCHANGE_RATE)
             spn_pay.setValue(0)
             spn_pay.setToolTip(f"Số tiền đã thanh toán {month_label.lower()}")

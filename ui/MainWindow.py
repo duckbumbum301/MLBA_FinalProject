@@ -15,7 +15,6 @@ try:
     from .DashboardTabWidget import DashboardTabWidget
     from .ReportTab import ReportTab
     from .AIAssistantWidget import AIAssistantWidget
-    from .ModelManagementTab import ModelManagementTab
     from .SystemManagementTab import SystemManagementTab
 except Exception:
     from user_model import User
@@ -23,7 +22,6 @@ except Exception:
     from DashboardTabWidget import DashboardTabWidget
     from ReportTab import ReportTab
     from AIAssistantWidget import AIAssistantWidget
-    from ModelManagementTab import ModelManagementTab
     from SystemManagementTab import SystemManagementTab
 
 try:
@@ -44,6 +42,13 @@ class MainWindow(QMainWindow):
         self.build_header_layout()
         self.setStyleSheet(STYLE_QSS)
         self.setup_tabs()
+        try:
+            self.tab.setTabBarAutoHide(True)
+        except Exception:
+            try:
+                self.tab.tabBar().hide()
+            except Exception:
+                pass
     
     def setup_menu(self):
         """Thiết lập menu bar với nút đăng xuất"""
@@ -91,9 +96,7 @@ class MainWindow(QMainWindow):
         self.tab.addTab(self.dashboard_tab, '📈 Dashboard')
         self.tab.addTab(self.report_tab, '📋 Báo Cáo')
         if self.user.is_admin():
-            self.ml_tab = ModelManagementTab()
             self.sys_tab = SystemManagementTab()
-            self.tab.addTab(self.ml_tab, 'Quản Lý ML')
             self.tab.addTab(self.sys_tab, 'Hệ Thống')
 
         # Wire navbar buttons to tabs when available
@@ -103,17 +106,12 @@ class MainWindow(QMainWindow):
             self.btnNavDashboard.clicked.connect(lambda: self.tab.setCurrentWidget(self.dashboard_tab))
         if hasattr(self, 'btnNavReport'):
             self.btnNavReport.clicked.connect(lambda: self.tab.setCurrentWidget(self.report_tab))
-
         try:
             self.prediction_tab.prediction_logged.connect(self.dashboard_tab.refresh_dashboard)
         except Exception:
             pass
-        if hasattr(self, 'btnNavML') and hasattr(self, 'ml_tab'):
-            self.btnNavML.clicked.connect(lambda: self.tab.setCurrentWidget(self.ml_tab))
         if hasattr(self, 'btnNavSys') and hasattr(self, 'sys_tab'):
             self.btnNavSys.clicked.connect(lambda: self.tab.setCurrentWidget(self.sys_tab))
-        if hasattr(self, 'btnNavAI'):
-            self.btnNavAI.clicked.connect(self.open_ai_popup)
         
         # Reflect active state in navbar
         self.tab.currentChanged.connect(self.on_tab_changed)
@@ -159,21 +157,13 @@ class MainWindow(QMainWindow):
         self.btnNavDashboard = QPushButton('Dashboard'); self.btnNavDashboard.setObjectName('NavItem'); self.btnNavDashboard.setCheckable(True)
         self.btnNavReport = QPushButton('Reports'); self.btnNavReport.setObjectName('NavItem'); self.btnNavReport.setCheckable(True)
         if self.user.is_admin():
-            self.btnNavML = QPushButton('Quản Lý ML'); self.btnNavML.setObjectName('NavItem'); self.btnNavML.setCheckable(True)
             self.btnNavSys = QPushButton('Hệ Thống'); self.btnNavSys.setObjectName('NavItem'); self.btnNavSys.setCheckable(True)
-            nav_buttons = [self.btnNavPredict, self.btnNavDashboard, self.btnNavReport, self.btnNavML, self.btnNavSys]
+            nav_buttons = [self.btnNavPredict, self.btnNavDashboard, self.btnNavReport, self.btnNavSys]
         else:
             nav_buttons = [self.btnNavPredict, self.btnNavDashboard, self.btnNavReport]
         for b in nav_buttons:
             nb.addWidget(b)
         nb.addStretch()
-        self.btnNavAI = QPushButton(''); self.btnNavAI.setObjectName('AiButton')
-        ai_path = base_dir / 'images' / 'chatbotAI.png'
-        if ai_path.exists():
-            self.btnNavAI.setIcon(QIcon(str(ai_path)))
-            self.btnNavAI.setIconSize(QSize(32,32))
-        self.btnNavAI.setFixedSize(44,44)
-        nb.addWidget(self.btnNavAI)
         search = QLineEdit(); search.setObjectName('SearchBox'); search.setPlaceholderText('Searching...')
         nb.addWidget(search)
 
@@ -192,6 +182,28 @@ class MainWindow(QMainWindow):
         fl.addStretch()
         container.addWidget(footer)
         self.setCentralWidget(root)
+        try:
+            self.chatFab = QPushButton('', self)
+            self.chatFab.setObjectName('ChatFab')
+            ai_path = base_dir / 'images' / 'chatbotAI.png'
+            if ai_path.exists():
+                self.chatFab.setIcon(QIcon(str(ai_path)))
+                self.chatFab.setIconSize(QSize(28,28))
+            self.chatFab.setFixedSize(56,56)
+            self.chatFab.setStyleSheet("background-color:#AFDDFF; border-radius:28px; color:#ffffff;")
+            self.chatFab.clicked.connect(self.open_ai_popup)
+            self.chatFab.raise_()
+            self._chatFabBottomOffset = 120
+            # Initial position
+            try:
+                m = 16
+                x = self.width() - m - self.chatFab.width()
+                y = self.height() - (m + self._chatFabBottomOffset) - self.chatFab.height()
+                self.chatFab.move(int(x), int(y))
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def open_ai_popup(self):
         dlg = QDialog(self)
@@ -209,7 +221,17 @@ class MainWindow(QMainWindow):
         set_active(self.btnNavPredict, w is getattr(self, 'prediction_tab', None))
         set_active(self.btnNavDashboard, w is getattr(self, 'dashboard_tab', None))
         set_active(self.btnNavReport, w is getattr(self, 'report_tab', None))
-        if hasattr(self, 'btnNavML'):
-            set_active(self.btnNavML, w is getattr(self, 'ml_tab', None))
         if hasattr(self, 'btnNavSys'):
             set_active(self.btnNavSys, w is getattr(self, 'sys_tab', None))
+
+    def resizeEvent(self, event):
+        try:
+            m = 16
+            if hasattr(self, 'chatFab') and self.chatFab:
+                x = self.width() - m - self.chatFab.width()
+                off = getattr(self, '_chatFabBottomOffset', 120)
+                y = self.height() - (m + off) - self.chatFab.height()
+                self.chatFab.move(int(x), int(y))
+        except Exception:
+            pass
+        return super().resizeEvent(event)
