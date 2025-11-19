@@ -103,6 +103,11 @@ class MainWindow(QMainWindow):
             self.btnNavDashboard.clicked.connect(lambda: self.tab.setCurrentWidget(self.dashboard_tab))
         if hasattr(self, 'btnNavReport'):
             self.btnNavReport.clicked.connect(lambda: self.tab.setCurrentWidget(self.report_tab))
+
+        try:
+            self.prediction_tab.prediction_logged.connect(self.dashboard_tab.refresh_dashboard)
+        except Exception:
+            pass
         if hasattr(self, 'btnNavML') and hasattr(self, 'ml_tab'):
             self.btnNavML.clicked.connect(lambda: self.tab.setCurrentWidget(self.ml_tab))
         if hasattr(self, 'btnNavSys') and hasattr(self, 'sys_tab'):

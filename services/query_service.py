@@ -236,6 +236,27 @@ class QueryService:
             result.append({'period': k, 'rate': rate})
         return result
 
+    def get_monthly_default_rate_recent(self, months: int = 12) -> List[Dict]:
+        query = """
+            SELECT DATE_FORMAT(created_at,'%Y-%m') AS ym,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN predicted_label = 1 THEN 1 ELSE 0 END) AS defaults
+            FROM predictions_log
+            GROUP BY ym
+            ORDER BY ym ASC
+        """
+        rows = self.db.fetch_all(query)
+        if not rows:
+            return []
+        start = max(0, len(rows) - months)
+        result = []
+        for ym, total, defaults in rows[start:]:
+            t = int(total or 0)
+            d = int(defaults or 0)
+            rate = (d / t) if t > 0 else 0.0
+            result.append({'period': ym, 'rate': rate})
+        return result
+
     def get_quarterly_high_risk_rate(self, quarters: int = 8, threshold: float = 0.60) -> List[Dict]:
         """Tính % high-risk theo quý (probability >= threshold), bổ sung quý thiếu với 0"""
         thr = self._get_dashboard_threshold_override(threshold)
@@ -264,6 +285,28 @@ class QueryService:
             total, high = agg.get(k, (0, 0))
             rate = (high / total) if total > 0 else 0.0
             result.append({'period': k, 'rate': rate})
+        return result
+
+    def get_quarterly_high_risk_rate_recent(self, quarters: int = 8, threshold: float = 0.60) -> List[Dict]:
+        thr = self._get_dashboard_threshold_override(threshold)
+        query = """
+            SELECT YEAR(created_at) AS y, QUARTER(created_at) AS q,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN probability >= %s THEN 1 ELSE 0 END) AS high
+            FROM predictions_log
+            GROUP BY y, q
+            ORDER BY y ASC, q ASC
+        """
+        rows = self.db.fetch_all(query, (thr,))
+        if not rows:
+            return []
+        start = max(0, len(rows) - quarters)
+        result = []
+        for y, q, total, high in rows[start:]:
+            t = int(total or 0)
+            h = int(high or 0)
+            rate = (h / t) if t > 0 else 0.0
+            result.append({'period': f"{int(y)}-Q{int(q)}", 'rate': rate})
         return result
 
     def _get_dashboard_threshold_override(self, default_thr: float = 0.60) -> float:
@@ -494,6 +537,195 @@ class QueryService:
             'high_risk_count': int(row[1] or 0),
             'avg_probability': float(row[2] or 0.0)
         }
+
+    def get_latest_day_bucket_counts(self) -> Dict[str, int]:
+        row = self.db.fetch_one("SELECT DATE(created_at) FROM predictions_log ORDER BY created_at DESC LIMIT 1")
+        if not row or not row[0]:
+            return {'0_20': 0, '20_40': 0, '40_60': 0, '60_80': 0, '80_100': 0}
+        d = row[0]
+        query = """
+            SELECT 
+                SUM(CASE WHEN probability >= 0 AND probability < 0.20 THEN 1 ELSE 0 END) AS b0_20,
+                SUM(CASE WHEN probability >= 0.20 AND probability < 0.40 THEN 1 ELSE 0 END) AS b20_40,
+                SUM(CASE WHEN probability >= 0.40 AND probability < 0.60 THEN 1 ELSE 0 END) AS b40_60,
+                SUM(CASE WHEN probability >= 0.60 AND probability < 0.80 THEN 1 ELSE 0 END) AS b60_80,
+                SUM(CASE WHEN probability >= 0.80 AND probability <= 1.00 THEN 1 ELSE 0 END) AS b80_100
+            FROM predictions_log
+            WHERE DATE(created_at) = %s
+        """
+        r = self.db.fetch_one(query, (d,))
+        if not r:
+            return {'0_20': 0, '20_40': 0, '40_60': 0, '60_80': 0, '80_100': 0}
+        return {
+            '0_20': int(r[0] or 0),
+            '20_40': int(r[1] or 0),
+            '40_60': int(r[2] or 0),
+            '60_80': int(r[3] or 0),
+            '80_100': int(r[4] or 0),
+        }
+
+    def get_latest_day_predictions_join_customers(self, limit: int = 2000) -> List[Dict]:
+        row = self.db.fetch_one("SELECT DATE(created_at) FROM predictions_log ORDER BY created_at DESC LIMIT 1")
+        if not row or not row[0]:
+            return []
+        d = row[0]
+        query = """
+            SELECT p.customer_id, p.probability, p.predicted_label,
+                   c.customer_name, c.customer_id_card,
+                   c.LIMIT_BAL, c.AGE, c.EDUCATION, c.MARRIAGE, c.SEX,
+                   c.PAY_0, c.BILL_AMT1
+            FROM predictions_log p
+            LEFT JOIN customers c ON p.customer_id = c.id
+            WHERE DATE(p.created_at) = %s
+            ORDER BY p.probability DESC
+            LIMIT %s
+        """
+        rows = self.db.fetch_all(query, (d, limit))
+        results: List[Dict] = []
+        for r in rows:
+            results.append({
+                'customer_id': int(r[0] or 0),
+                'probability': float(r[1] or 0.0),
+                'label': int(r[2] or 0),
+                'customer_name': r[3],
+                'customer_id_card': r[4],
+                'LIMIT_BAL': float(r[5] or 0.0),
+                'AGE': int(r[6] or 0) if r[6] is not None else None,
+                'EDUCATION': int(r[7] or 0) if r[7] is not None else None,
+                'MARRIAGE': int(r[8] or 0) if r[8] is not None else None,
+                'SEX': int(r[9] or 0) if r[9] is not None else None,
+                'PAY_0': int(r[10] or 0) if r[10] is not None else None,
+                'BILL_AMT1': float(r[11] or 0.0),
+            })
+        return results
+
+    def get_top_predictions_join_customers(self, limit: int = 10, ascending: bool = False) -> List[Dict]:
+        order = "ASC" if ascending else "DESC"
+        query = f"""
+            SELECT p.customer_id, p.probability, p.predicted_label,
+                   c.customer_name, c.customer_id_card
+            FROM predictions_log p
+            INNER JOIN customers c ON p.customer_id = c.id
+            ORDER BY p.probability {order}
+            LIMIT %s
+        """
+        rows = self.db.fetch_all(query, (limit,))
+        results: List[Dict] = []
+        for r in rows:
+            results.append({
+                'customer_id': int(r[0] or 0),
+                'probability': float(r[1] or 0.0),
+                'label': int(r[2] or 0),
+                'customer_name': r[3],
+                'customer_id_card': r[4],
+            })
+        return results
+
+    def get_recent_predictions_join_customers(self, period: str = 'today', limit: int = 100) -> List[Dict]:
+        period = (period or 'today').strip().lower()
+        if period in ('today', 'hôm nay', 'hom nay'):
+            where = "WHERE DATE(p.created_at) = CURDATE()"
+        elif period in ('week', 'tuần này', 'tuan nay'):
+            where = "WHERE p.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+        else:
+            # month
+            where = "WHERE DATE_FORMAT(p.created_at,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')"
+        query = f"""
+            SELECT p.customer_id, p.predicted_label, p.probability, p.created_at, p.raw_input_json, p.user_id,
+                   c.customer_name, c.customer_id_card
+            FROM predictions_log p
+            INNER JOIN customers c ON p.customer_id = c.id
+            {where}
+            ORDER BY p.created_at DESC
+            LIMIT %s
+        """
+        rows = self.db.fetch_all(query, (limit,))
+        if not rows and period in ('today','hôm nay','hom nay'):
+            drow = self.db.fetch_one("SELECT DATE(created_at) FROM predictions_log ORDER BY created_at DESC LIMIT 1")
+            if drow and drow[0]:
+                query2 = """
+                    SELECT p.customer_id, p.predicted_label, p.probability, p.created_at, p.raw_input_json, p.user_id,
+                           c.customer_name, c.customer_id_card
+                    FROM predictions_log p
+                    INNER JOIN customers c ON p.customer_id = c.id
+                    WHERE DATE(p.created_at) = %s
+                    ORDER BY p.probability DESC
+                    LIMIT %s
+                """
+                rows = self.db.fetch_all(query2, (drow[0], limit))
+        results: List[Dict] = []
+        for r in rows:
+            results.append({
+                'customer_id': int(r[0] or 0),
+                'predicted_label': int(r[1] or 0),
+                'probability': float(r[2] or 0.0),
+                'created_at': r[3],
+                'raw_input_json': r[4],
+                'user_id': r[5],
+                'customer_name': r[6],
+                'customer_id_card': r[7],
+            })
+        return results
+
+    def get_payment_status_distribution(self) -> Dict[str, int]:
+        query = """
+            SELECT
+                SUM(CASE WHEN PAY_0 <= 0 THEN 1 ELSE 0 END) AS on_time,
+                SUM(CASE WHEN PAY_0 = 1 THEN 1 ELSE 0 END) AS late_1,
+                SUM(CASE WHEN PAY_0 = 2 THEN 1 ELSE 0 END) AS late_2,
+                SUM(CASE WHEN PAY_0 >= 3 THEN 1 ELSE 0 END) AS late_3p
+            FROM customers
+        """
+        r = self.db.fetch_one(query)
+        if not r:
+            return {'On time': 0, '1 mo late': 0, '2 mo late': 0, '3+ mo late': 0}
+        return {
+            'On time': int(r[0] or 0),
+            '1 mo late': int(r[1] or 0),
+            '2 mo late': int(r[2] or 0),
+            '3+ mo late': int(r[3] or 0),
+        }
+
+    def get_top_late_customers_with_risk(self, limit: int = 20) -> List[Dict]:
+        row = self.db.fetch_one("SELECT DATE(created_at) FROM predictions_log ORDER BY created_at DESC LIMIT 1")
+        d = row[0] if row and row[0] else None
+        if d:
+            query = """
+                SELECT c.customer_name, c.customer_id_card,
+                       CASE WHEN p.probability >= 0.60 THEN 'High'
+                            WHEN p.probability >= 0.40 THEN 'Medium'
+                            ELSE 'Low' END AS risk,
+                       c.PAY_0,
+                       GREATEST(c.BILL_AMT1 - c.PAY_AMT1, 0) AS overdue
+                FROM customers c
+                LEFT JOIN predictions_log p ON p.customer_id = c.id AND DATE(p.created_at) = %s
+                WHERE c.PAY_0 >= 1
+                ORDER BY c.PAY_0 DESC, overdue DESC
+                LIMIT %s
+            """
+            rows = self.db.fetch_all(query, (d, limit))
+        else:
+            query = """
+                SELECT c.customer_name, c.customer_id_card,
+                       'Low' AS risk,
+                       c.PAY_0,
+                       GREATEST(c.BILL_AMT1 - c.PAY_AMT1, 0) AS overdue
+                FROM customers c
+                WHERE c.PAY_0 >= 1
+                ORDER BY c.PAY_0 DESC, overdue DESC
+                LIMIT %s
+            """
+            rows = self.db.fetch_all(query, (limit,))
+        result: List[Dict] = []
+        for r in rows:
+            result.append({
+                'customer_name': r[0],
+                'customer_id_card': r[1],
+                'risk': r[2],
+                'months_late': int(r[3] or 0),
+                'amount_overdue': float(r[4] or 0.0),
+            })
+        return result
 
     # ===================== Label mapping helpers =====================
     @staticmethod

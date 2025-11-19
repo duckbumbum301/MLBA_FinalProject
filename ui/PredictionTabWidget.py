@@ -11,9 +11,9 @@ from PyQt6.QtWidgets import (
     QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy,
     QApplication, QProgressDialog
 )
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtCore import Qt
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont, QColor, QIcon
 import random
 
 project_root = Path(__file__).resolve().parent.parent
@@ -33,11 +33,17 @@ class PredictionTabWidget(QWidget):
     
     EXCHANGE_RATE = 800  # 1 NT$ = 800 VND
     
+    prediction_logged = pyqtSignal()
+
     def __init__(self, user: User, query_service: QueryService):
         super().__init__()
         self.user = user
         self.query_service = query_service
         self.current_currency = 'VND'  # Mặc định VND
+        try:
+            self.random_icon = QIcon(str(Path(__file__).resolve().parent / 'images' / 'random.png'))
+        except Exception:
+            self.random_icon = QIcon()
         self._original_customer = None
         
         # Init ML Service
@@ -94,7 +100,7 @@ class PredictionTabWidget(QWidget):
                     padding: 5px;
                     border: 2px solid #3498db;
                     border-radius: 5px;
-                    font-weight: bold;
+                    font-weight: normal;
                 }
             """)
             model_selector_layout.addWidget(self.model_selector)
@@ -191,8 +197,16 @@ class PredictionTabWidget(QWidget):
     
     def create_personal_info_group(self) -> QGroupBox:
         """Tạo GroupBox thông tin cá nhân"""
-        group = QGroupBox("📋 THÔNG TIN CÁ NHÂN")
+        group = QGroupBox("")
+        main_layout = QVBoxLayout()
+        header = QLabel("THÔNG TIN CÁ NHÂN")
+        header.setObjectName('SectionHeader')
+        header.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        main_layout.setContentsMargins(12,12,12,12)
+        main_layout.addWidget(header)
         layout = QFormLayout()
+        layout.setContentsMargins(12,12,12,12)
         
         # Customer name (optional)
         self.txtCustomerName = QLineEdit()
@@ -205,19 +219,9 @@ class PredictionTabWidget(QWidget):
         self.txtCustomerID.setPlaceholderText("CMND/CCCD (tùy chọn)")
         cmnd_layout.addWidget(self.txtCustomerID)
         
-        self.btnSearch = QPushButton("🔍 Tìm kiếm")
-        self.btnSearch.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 5px 15px;
-                border-radius: 5px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
+        self.btnSearch = QPushButton("Tìm kiếm")
+        self.btnSearch.setObjectName('Secondary')
+        self.btnSearch.setStyleSheet("")
         self.btnSearch.clicked.connect(self.search_customer)
         self.btnSearch.setToolTip("Tìm kiếm khách hàng theo CMND/CCCD và tự động điền form")
         cmnd_layout.addWidget(self.btnSearch)
@@ -264,17 +268,23 @@ class PredictionTabWidget(QWidget):
         self.spnAge.setDecimals(0)
         layout.addRow("Tuổi:", self.spnAge)
         
-        group.setLayout(layout)
+        main_layout.addLayout(layout)
+        group.setLayout(main_layout)
         return group
     
     def create_payment_history_group(self) -> QGroupBox:
         """Tạo GroupBox lịch sử thanh toán với option 12/6 tháng"""
-        group = QGroupBox("💳 LỊCH SỬ THANH TOÁN")
+        group = QGroupBox("")
         group.setStyleSheet(
-            "QGroupBox { font-weight: bold; border: 1px solid #dfe6ee; border-radius: 10px; }"
-            "QGroupBox::title { color: #ffffff; background-color: #2663ea; padding: 4px 8px; border-radius: 6px; }"
+            "QGroupBox { background: #f7f9fc; font-weight: bold; border: 1px solid #dfe6ee; border-radius: 10px; }"
         )
         main_layout = QVBoxLayout()
+        header = QLabel("LỊCH SỬ THANH TOÁN")
+        header.setObjectName('SectionHeader')
+        header.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        main_layout.setContentsMargins(12,12,12,12)
+        main_layout.addWidget(header)
         
         # === Header: RadioButton + Random Button ===
         header_layout = QHBoxLayout()
@@ -294,8 +304,13 @@ class PredictionTabWidget(QWidget):
         header_layout.addStretch()
         
         # Random Button
-        self.btnRandomPayments = QPushButton("🎲 Random ngẫu nhiên")
-        self.btnRandomPayments.setObjectName('Primary')
+        self.btnRandomPayments = QPushButton("\u00A0\u00A0Random ngẫu nhiên")
+        self.btnRandomPayments.setObjectName('Secondary')
+        try:
+            self.btnRandomPayments.setIcon(self.random_icon)
+            self.btnRandomPayments.setIconSize(QSize(20,20))
+        except Exception:
+            pass
         self.btnRandomPayments.clicked.connect(self.random_payment_history)
         self.btnRandomPayments.setToolTip("Tự động điền giá trị ngẫu nhiên hợp lý cho lịch sử thanh toán")
         header_layout.addWidget(self.btnRandomPayments)
@@ -304,6 +319,7 @@ class PredictionTabWidget(QWidget):
         
         # === Form Layout cho payment fields ===
         form_layout = QFormLayout()
+        form_layout.setContentsMargins(12,12,12,12)
         
         self.pay_options = [
             "Không sử dụng",
@@ -396,19 +412,29 @@ class PredictionTabWidget(QWidget):
     
     def create_billing_details_group(self) -> QGroupBox:
         """Tạo GroupBox chi tiết sao kê với random button"""
-        group = QGroupBox("📊 CHI TIẾT SAO KÊ")
+        group = QGroupBox("")
         main_layout = QVBoxLayout()
         group.setStyleSheet(
-            "QGroupBox { font-weight: bold; border: 1px solid #dfe6ee; border-radius: 10px; }"
-            "QGroupBox::title { color: #ffffff; background-color: #2663ea; padding: 4px 8px; border-radius: 6px; }"
+            "QGroupBox { background: #f7f9fc; font-weight: bold; border: 1px solid #dfe6ee; border-radius: 10px; }"
         )
+        header = QLabel("CHI TIẾT SAO KÊ")
+        header.setObjectName('SectionHeader')
+        header.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        main_layout.setContentsMargins(12,12,12,12)
+        main_layout.addWidget(header)
         
         # === Header: Random Button ===
         header_layout = QHBoxLayout()
         header_layout.addStretch()
         
-        self.btnRandomBilling = QPushButton("🎲 Random ngẫu nhiên")
-        self.btnRandomBilling.setObjectName('Primary')
+        self.btnRandomBilling = QPushButton("\u00A0\u00A0Random ngẫu nhiên")
+        self.btnRandomBilling.setObjectName('Secondary')
+        try:
+            self.btnRandomBilling.setIcon(self.random_icon)
+            self.btnRandomBilling.setIconSize(QSize(20,20))
+        except Exception:
+            pass
         self.btnRandomBilling.clicked.connect(self.random_billing_details)
         self.btnRandomBilling.setToolTip("Tự động điền giá trị ngẫu nhiên hợp lý cho số dư và thanh toán")
         header_layout.addWidget(self.btnRandomBilling)
@@ -417,6 +443,7 @@ class PredictionTabWidget(QWidget):
         
         # === Form Layout ===
         form_layout = QFormLayout()
+        form_layout.setContentsMargins(12,12,12,12)
         
         self.bill_amts = []
         self.pay_amts = []
@@ -665,6 +692,10 @@ class PredictionTabWidget(QWidget):
                 probability=result.probability,
                 raw_input_dict=input_dict
             )
+            try:
+                self.prediction_logged.emit()
+            except Exception:
+                pass
             
             print("✓ Đã lưu prediction vào database")
         

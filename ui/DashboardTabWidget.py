@@ -4,12 +4,15 @@ Tab Dashboard với 4 biểu đồ đánh giá mô hình ML
 """
 import sys
 from pathlib import Path
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QPushButton, QHBoxLayout, QFrame, QLabel, QScrollArea, QComboBox, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QPushButton, QHBoxLayout, QFrame, QLabel, QScrollArea, QComboBox, QSizePolicy, QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt6.QtCore import Qt
 import matplotlib
 matplotlib.use('QtAgg')  # PyQt6 compatible backend
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import random
+from matplotlib.ticker import FuncFormatter
+import numpy as np
 
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
@@ -33,6 +36,10 @@ class MatplotlibCanvas(FigureCanvas):
         self.setParent(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMinimumHeight(320)
+        try:
+            self.setMinimumWidth(480)
+        except Exception:
+            pass
 
 
 class DashboardTabWidget(QWidget):
@@ -59,53 +66,29 @@ class DashboardTabWidget(QWidget):
     
     def setup_ui(self):
         """Thiết lập giao diện"""
-        # Scrollable content
         root = QVBoxLayout(self)
-        scroll = QScrollArea(); scroll.setWidgetResizable(True)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.scroll = QScrollArea(); self.scroll.setWidgetResizable(True)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         content = QWidget()
         main_layout = QVBoxLayout(content); main_layout.setContentsMargins(16,16,16,16); main_layout.setSpacing(16)
         
-        # Filter + Refresh
-        button_layout = QHBoxLayout()
-        lbl = QLabel('Kỳ:')
-        self.cmbPeriod = QComboBox(); self.cmbPeriod.addItems(['Tháng','Quý'])
-        self.cmbPeriod.setCurrentText('Tháng')
-        self.cmbPeriod.currentTextChanged.connect(self._on_period_kind_changed)
-        lbl2 = QLabel('Số kỳ:')
-        self.cmbCount = QComboBox(); self._set_count_items('month')
-        self.cmbCount.setCurrentText('12')
-        self.cmbCount.currentTextChanged.connect(self._on_period_count_changed)
-        button_layout.addWidget(lbl)
-        button_layout.addWidget(self.cmbPeriod)
-        button_layout.addSpacing(12)
-        button_layout.addWidget(lbl2)
-        button_layout.addWidget(self.cmbCount)
-        button_layout.addStretch()
-        
-        self.btnRefresh = QPushButton("🔄 Refresh Dashboard")
-        self.btnRefresh.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                padding: 8px 15px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
+        # Refresh button (style như Secondary)
+        self.btnRefresh = QPushButton("Refresh Dashboard")
+        try:
+            self.btnRefresh.setObjectName('Secondary')
+            self.btnRefresh.setStyleSheet("")
+        except Exception:
+            pass
         self.btnRefresh.clicked.connect(self.refresh_dashboard)
-        button_layout.addWidget(self.btnRefresh)
-        
-        main_layout.addLayout(button_layout)
 
-        # KPI cards row
         kpi_row = QHBoxLayout(); kpi_row.setContentsMargins(0,0,0,0); kpi_row.setSpacing(16)
         def make_card(title_text: str, variant: str):
             card = QFrame(); card.setObjectName(variant)
             v = QVBoxLayout(card); v.setContentsMargins(16,16,16,16)
+            try:
+                card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            except Exception:
+                pass
             t = QLabel(title_text); t.setObjectName('KpiTitle')
             val = QLabel('—'); val.setObjectName('KpiValue')
             v.addWidget(t)
@@ -115,24 +98,48 @@ class DashboardTabWidget(QWidget):
         card2, val2 = make_card('Tỷ lệ High-Risk', 'DashboardCardRed')
         card3, val3 = make_card('Xác suất trung bình', 'DashboardCardYellow')
         self.kpi_cards = {'total': val1, 'high_rate': val2, 'avg_prob': val3}
-        kpi_row.addWidget(card1)
-        kpi_row.addWidget(card2)
-        kpi_row.addWidget(card3)
-        main_layout.addLayout(kpi_row)
+        if not (hasattr(self.user, 'is_admin') and self.user.is_admin()):
+            kpi_row.addWidget(card1, 1)
+            kpi_row.addWidget(card2, 1)
+            kpi_row.addWidget(card3, 1)
+            kpi_row.addWidget(self.btnRefresh)
+            main_layout.addLayout(kpi_row)
+        else:
+            top_actions = QHBoxLayout(); top_actions.setContentsMargins(0,0,0,0); top_actions.addStretch(); top_actions.addWidget(self.btnRefresh)
+            main_layout.addLayout(top_actions)
         # Admin-only: Health/Drift card
         if hasattr(self.user, 'is_admin') and self.user.is_admin():
             health_card = QFrame(); health_card.setObjectName('ChartCard')
-            hv = QVBoxLayout(health_card); hv.setContentsMargins(12,12,12,12)
+            hv = QVBoxLayout(health_card); hv.setContentsMargins(12,12,12,12); hv.setSpacing(8)
             ht = QLabel('Model health / drift check'); ht.setObjectName('ChartTitle'); hv.addWidget(ht)
-            lbl_data = QLabel('Data drift: …'); lbl_pred = QLabel('Prediction drift: …'); lbl_feat = QLabel('Feature drift: …'); lbl_acc = QLabel('Model accuracy: …')
-            for l in [lbl_data, lbl_pred, lbl_feat, lbl_acc]:
-                l.setObjectName('HealthItem')
-                hv.addWidget(l)
-            self.health_labels = {'data': lbl_data, 'pred': lbl_pred, 'feat': lbl_feat, 'acc': lbl_acc}
-            main_layout.addWidget(health_card)
+            def make_row():
+                row = QHBoxLayout(); row.setSpacing(8)
+                desc = QLabel('…'); desc.setObjectName('HealthDesc')
+                chip = QLabel(''); chip.setObjectName('ChipStable')
+                row.addWidget(desc)
+                row.addSpacing(10)
+                row.addWidget(chip)
+                row.addStretch()
+                return row, desc, chip
+            r1, d1, c1 = make_row(); hv.addLayout(r1)
+            r2, d2, c2 = make_row(); hv.addLayout(r2)
+            r3, d3, c3 = make_row(); hv.addLayout(r3)
+            r4, d4, c4 = make_row(); hv.addLayout(r4)
+            hv.addStretch(1)
+            self.health_labels = {
+                'data': {'desc': d1, 'chip': c1},
+                'pred': {'desc': d2, 'chip': c2},
+                'feat': {'desc': d3, 'chip': c3},
+                'acc': {'desc': d4, 'chip': c4},
+            }
+            try:
+                health_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            except Exception:
+                pass
+            self.health_card = health_card
         
         # Grid layout 2x2 cho 4 biểu đồ
-        grid_layout = QGridLayout(); grid_layout.setHorizontalSpacing(16); grid_layout.setVerticalSpacing(16)
+        self.main_grid = QGridLayout(); self.main_grid.setHorizontalSpacing(16); self.main_grid.setVerticalSpacing(16)
         
         # 4 canvas có thể tái sử dụng: admin (ML) hoặc user (vận hành)
         def make_chart(title_text: str, w: float = 7.0, h: float = 4.8):
@@ -140,29 +147,111 @@ class DashboardTabWidget(QWidget):
             v = QVBoxLayout(card); v.setContentsMargins(12,12,12,12); v.setSpacing(8)
             t = QLabel(title_text); t.setObjectName('ChartTitle'); v.addWidget(t)
             canvas = MatplotlibCanvas(self, width=w, height=h); v.addWidget(canvas)
-            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             v.setStretch(1, 1)
             return card, canvas, t
 
-        card_tl, self.canvas_top_left, self.title_top_left = make_chart('Tỷ lệ theo risk bucket', 6.0, 4.8)
-        card_tr, self.canvas_top_right, self.title_top_right = make_chart('Trend vỡ nợ theo thời gian', 8.0, 5.8)
-        card_bl, self.canvas_bottom_left, self.title_bottom_left = make_chart('Top 5 yếu tố ảnh hưởng', 6.5, 5.4)
-        card_br, self.canvas_bottom_right, self.title_bottom_right = make_chart('Phân bổ khách hàng theo nhóm', 6.5, 4.8)
+        card_tl, self.canvas_top_left, self.title_top_left = make_chart('Tỷ lệ theo risk bucket', 7.0, 5.0)
+        card_tr, self.canvas_top_right, self.title_top_right = make_chart('Top 10 khách hàng theo nguy cơ', 7.0, 5.0)
+        # Filter + Table inside the top-right card (User role only)
+        if not (hasattr(self.user, 'is_admin') and self.user.is_admin()):
+            try:
+                filter_row = QHBoxLayout(); filter_row.setSpacing(8)
+                lbl = QLabel('Hiển thị:')
+                self.top_filter_mode = QComboBox(); self.top_filter_mode.addItems(['Cao nhất', 'Thấp nhất'])
+                filter_row.addWidget(lbl)
+                filter_row.addWidget(self.top_filter_mode)
+                card_tr.layout().insertLayout(1, filter_row)
 
-        grid_layout.addWidget(card_tl, 0, 0)
-        grid_layout.addWidget(card_tr, 0, 1)
-        grid_layout.addWidget(card_bl, 1, 0)
-        grid_layout.addWidget(card_br, 1, 1)
-        # 50:55 width ratio (Trend slightly wider than Buckets)
-        grid_layout.setColumnStretch(0, 50)
-        grid_layout.setColumnStretch(1, 55)
+                self.table_top_list = QTableWidget()
+                self.table_top_list.setColumnCount(6)
+                self.table_top_list.setHorizontalHeaderLabels(['Customer ID','Customer Name','ID Card','Probability','Risk','Label'])
+                try:
+                    hdr = self.table_top_list.horizontalHeader()
+                    hdr.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                    self.table_top_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                    self.table_top_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+                    self.table_top_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+                except Exception:
+                    pass
+                card_tr.layout().addWidget(self.table_top_list)
+                card_tr.layout().setStretch(1, 0)
+                card_tr.layout().setStretch(2, 0)
+                card_tr.layout().setStretch(3, 1)
+                self.top_filter_mode.currentTextChanged.connect(self._on_top_list_filter_changed)
+            except Exception:
+                pass
         
-        main_layout.addLayout(grid_layout)
+        card_bl, self.canvas_bottom_left, self.title_bottom_left = make_chart('Top 5 yếu tố ảnh hưởng', 7.0, 5.0)
+        card_br, self.canvas_bottom_right, self.title_bottom_right = make_chart('Phân bổ khách hàng theo nhóm', 7.0, 5.0)
+
+        self.card_tl = card_tl
+        self.card_tr = card_tr
+        self.card_bl = card_bl
+        self.card_br = card_br
+        if hasattr(self.user, 'is_admin') and self.user.is_admin():
+            row_top = QHBoxLayout(); row_top.setContentsMargins(0,0,0,0); row_top.setSpacing(16)
+            try:
+                row_top.setAlignment(Qt.AlignmentFlag.AlignTop)
+            except Exception:
+                pass
+            if hasattr(self, 'health_card') and self.health_card is not None:
+                row_top.addWidget(self.health_card, 2)
+            row_top.addWidget(self.card_tl, 5)
+            row_top.addWidget(self.card_tr, 3)
+            main_layout.addLayout(row_top)
+            row_bottom = QHBoxLayout(); row_bottom.setContentsMargins(0,0,0,0); row_bottom.setSpacing(16)
+            row_bottom.addWidget(self.card_bl, 1)
+            row_bottom.addWidget(self.card_br, 1)
+            main_layout.addLayout(row_bottom)
+        else:
+            self.main_grid.addWidget(self.card_tl, 0, 0)
+            self.main_grid.addWidget(self.card_tr, 0, 1)
+            self.main_grid.addWidget(self.card_bl, 1, 0)
+            self.main_grid.addWidget(self.card_br, 1, 1)
+            self.main_grid.setColumnStretch(0, 50)
+            self.main_grid.setColumnStretch(1, 55)
+            self.main_grid.setRowStretch(0, 1)
+            self.main_grid.setRowStretch(1, 1)
+            main_layout.addLayout(self.main_grid)
+        if not (hasattr(self.user, 'is_admin') and self.user.is_admin()):
+            extra1 = QFrame(); extra1.setObjectName('ChartCard')
+            v1 = QVBoxLayout(extra1); v1.setContentsMargins(12,12,12,12); v1.setSpacing(8)
+            t1 = QLabel('Phân bố trạng thái thanh toán (PAY_0)'); t1.setObjectName('ChartTitle'); v1.addWidget(t1)
+            self.canvas_pay_status = MatplotlibCanvas(self, width=6.5, height=4.2); v1.addWidget(self.canvas_pay_status)
+
+            extra2 = QFrame(); extra2.setObjectName('ChartCard')
+            v2 = QVBoxLayout(extra2); v2.setContentsMargins(12,12,12,12); v2.setSpacing(8)
+            t2 = QLabel('Danh sách khách hàng trễ hạn gần đây'); t2.setObjectName('ChartTitle'); v2.addWidget(t2)
+            self.table_late_customers = QTableWidget(0, 5)
+            self.table_late_customers.setHorizontalHeaderLabels(['Customer','Citizen ID','Risk','Months Late','Amount Overdue'])
+            try:
+                hdr2 = self.table_late_customers.horizontalHeader()
+                hdr2.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                self.table_late_customers.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                self.table_late_customers.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+                self.table_late_customers.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            except Exception:
+                pass
+            v2.addWidget(self.table_late_customers)
+            self.extra1 = extra1
+            self.extra2 = extra2
+            self.main_grid.addWidget(self.extra1, 2, 0)
+            self.main_grid.addWidget(self.extra2, 2, 1)
+            self.main_grid.setRowStretch(2, 1)
+
         main_layout.addStretch(1)
-        content.setMinimumHeight(1000)
-        scroll.setWidget(content)
-        root.addWidget(scroll)
+        self.scroll.setWidget(content)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        root.addWidget(self.scroll)
+        # Bố cục cố định 2 cột 3 hàng với tỷ lệ 50:55
+
+    def _apply_responsive_layout(self):
+        pass
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
     
     def load_and_plot_data(self):
         """Hiển thị dashboard theo role"""
@@ -183,7 +272,7 @@ class DashboardTabWidget(QWidget):
                 # User: dashboard vận hành
                 try:
                     self.title_top_left.setText('Tỷ lệ theo risk bucket')
-                    self.title_top_right.setText('Trend vỡ nợ theo thời gian')
+                    self.title_top_right.setText('Top 10 khách hàng theo nguy cơ')
                     self.title_bottom_left.setText('Top 5 yếu tố ảnh hưởng')
                     self.title_bottom_right.setText('Phân bổ khách hàng theo nhóm')
                 except Exception:
@@ -261,34 +350,9 @@ class DashboardTabWidget(QWidget):
 
         # 2. Trend theo thời gian
         try:
-            ax = self.canvas_top_right.axes; ax.clear()
-            if self.period_kind == 'quarter':
-                quarters = self._get_quarterly_high_risk_rate(self.period_count)
-                if quarters:
-                    xq = [q['period'] for q in quarters]
-                    yq = [q['rate']*100 for q in quarters]
-                    ax.plot(xq, yq, marker='s', color='#F2994A', label='% high-risk theo quý')
-            else:
-                monthly = self._get_monthly_default_rate(self.period_count)
-                if monthly:
-                    xs = [m['period'] for m in monthly]
-                    ys = [m['rate']*100 for m in monthly]
-                    ax.plot(xs, ys, marker='o', color='#2F80ED', label='% default theo tháng')
-            ax.set_ylabel('%')
-            ax.grid(alpha=0.3)
-            try:
-                ax.tick_params(axis='x', labelrotation=45, labelsize=11, pad=8)
-                ax.margins(x=0.02)
-            except Exception:
-                pass
-            ax.legend(fontsize=9)
-            try:
-                self.canvas_top_right.figure.subplots_adjust(bottom=0.36)
-            except Exception:
-                pass
-            self.canvas_top_right.draw()
+            self._populate_top_list()
         except Exception as e:
-            print(f"⚠ Lỗi vẽ trend: {e}")
+            print(f"⚠ Lỗi vẽ top list: {e}")
 
         # 3. SHAP-lite Top 5 yếu tố (lọc theo thời gian)
         try:
@@ -337,6 +401,38 @@ class DashboardTabWidget(QWidget):
             self.canvas_bottom_right.draw()
         except Exception as e:
             print(f"⚠ Lỗi vẽ pie charts: {e}")
+
+        # 5. Payment status distribution (PAY_0)
+        try:
+            ax = self.canvas_pay_status.axes; ax.clear()
+            dist = self.query_service.get_payment_status_distribution() if self.query_service else {}
+            labels = list(dist.keys())
+            values = [int(dist[k]) for k in labels] if dist else []
+            if values:
+                ax.bar(labels, values, color='#F2994A')
+                ax.set_ylabel('Số lượng')
+                ax.grid(axis='y', alpha=0.3)
+                try:
+                    self.canvas_pay_status.figure.subplots_adjust(bottom=0.25)
+                except Exception:
+                    pass
+            else:
+                ax.text(0.5,0.5,'No data', ha='center', va='center', transform=ax.transAxes)
+            self.canvas_pay_status.draw()
+        except Exception as e:
+            print(f"⚠ Lỗi vẽ payment status: {e}")
+
+        # 6. Late customers table (from DB)
+        try:
+            rows = self.query_service.get_top_late_customers_with_risk(limit=20) if self.query_service else []
+            self.table_late_customers.setRowCount(len(rows))
+            for i, r in enumerate(rows):
+                vals = [r.get('customer_name'), r.get('customer_id_card'), r.get('risk'), r.get('months_late'), f"{r.get('amount_overdue',0.0):,.0f}"]
+                for j, v in enumerate(vals):
+                    self.table_late_customers.setItem(i, j, QTableWidgetItem(str(v)))
+            self.table_late_customers.resizeColumnsToContents()
+        except Exception as e:
+            print(f"⚠ Lỗi vẽ bảng late customers: {e}")
     
     def plot_feature_importance_chart(self):
         """Vẽ biểu đồ Feature Importance"""
@@ -417,28 +513,82 @@ class DashboardTabWidget(QWidget):
         print("🔄 Refreshing dashboard...")
         self.load_and_plot_data()
 
-    def _on_period_kind_changed(self, text: str):
-        self.period_kind = {'Tháng':'month','Quý':'quarter'}.get(text, 'month')
-        self._set_count_items(self.period_kind)
-        # Reset default count
-        self.period_count = 12 if self.period_kind == 'month' else 4
-        self.refresh_dashboard()
-
-    def _on_period_count_changed(self, text: str):
+    def _on_top_list_filter_changed(self, _=None):
         try:
-            self.period_count = int(text)
+            self._populate_top_list()
         except Exception:
-            self.period_count = 12
-        self.refresh_dashboard()
+            pass
 
-    def _set_count_items(self, kind: str):
-        self.cmbCount.clear()
-        if kind == 'month':
-            for v in ['3','6','9','12']:
-                self.cmbCount.addItem(v)
-        else:
-            for v in ['1','2','3','4']:
-                self.cmbCount.addItem(v)
+    def _populate_top_list(self):
+        # Show table and hide canvas in this card
+        try:
+            self.canvas_top_right.setVisible(False)
+        except Exception:
+            pass
+        try:
+            self.table_top_list.setVisible(True)
+        except Exception:
+            pass
+        mode = 'Cao nhất'
+        try:
+            mode = self.top_filter_mode.currentText()
+        except Exception:
+            pass
+        # Fetch latest-day predictions joined with customers
+        rows = []
+        if self.query_service and hasattr(self.query_service, 'get_top_predictions_join_customers'):
+            try:
+                asc = (mode == 'Thấp nhất')
+                rows = self.query_service.get_top_predictions_join_customers(limit=10, ascending=asc)
+            except Exception:
+                rows = []
+        # Fallback demo
+        if not rows:
+            rows = [
+                {'customer_id': i+1, 'customer_name': f'Customer {i+1}', 'customer_id_card': f'ID{i+1:05d}',
+                 'probability': max(0.0, min(1.0, 0.8 - i*0.03)), 'label': 1 if i%3==0 else 0}
+                for i in range(20)
+            ]
+        # Ensure exactly 10 items
+        rows = rows[:10]
+        # Populate table
+        self.table_top_list.setRowCount(len(rows))
+        for i, r in enumerate(rows):
+            prob = float(r.get('probability',0.0))
+            vals = [
+                r.get('customer_id'),
+                r.get('customer_name') or '—',
+                r.get('customer_id_card') or '—',
+                f"{prob*100:.1f}%",
+                self._risk_label_from_probability(prob),
+                r.get('label'),
+            ]
+            for j, v in enumerate(vals):
+                self.table_top_list.setItem(i, j, QTableWidgetItem(str(v)))
+        try:
+            self.table_top_list.resizeColumnsToContents()
+        except Exception:
+            pass
+        try:
+            self.title_top_right.setText('Top 10 khách hàng theo nguy cơ')
+        except Exception:
+            pass
+
+    def _risk_label_from_probability(self, p: float) -> str:
+        try:
+            if p < 0.20:
+                return 'Nguy cơ rất thấp'
+            if p < 0.40:
+                return 'Nguy cơ thấp'
+            if p < 0.60:
+                return 'Nguy cơ trung bình'
+            if p < 0.80:
+                return 'Nguy cơ cao'
+            return 'Nguy cơ rất cao'
+        except Exception:
+            return 'Nguy cơ N/A'
+
+    # period filters removed
 
     # ===================== Data aggregation helpers =====================
     def _update_health_card(self):
@@ -455,7 +605,13 @@ class DashboardTabWidget(QWidget):
             if series and len(series) >= 2:
                 delta = (series[-1]['rate'] - series[-2]['rate']) * 100
             status = 'Warning' if abs(delta) >= 5.0 else 'Stable'
-            self.health_labels['data'].setText(f"Default rate drift: {delta:+.1f}% ({status})")
+            self.health_labels['data']['desc'].setText(f"Default rate drift: {delta:+.1f}%")
+            self.health_labels['data']['chip'].setText(status)
+            self.health_labels['data']['chip'].setObjectName('ChipWarning' if status=='Warning' else 'ChipStable')
+            try:
+                self.health_labels['data']['chip'].setStyleSheet("")
+            except Exception:
+                pass
 
             # Prediction drift via avg probability (approx)
             if self.query_service and hasattr(self.query_service, 'get_prediction_stats'):
@@ -465,23 +621,60 @@ class DashboardTabWidget(QWidget):
                 prev_rate = prev_series[-2]['rate'] if len(prev_series) >= 2 else avg_prob
                 pred_delta = (avg_prob - prev_rate) * 100
                 pstatus = 'Warning' if abs(pred_delta) >= 5.0 else 'Stable'
-                self.health_labels['pred'].setText(f"Prediction drift: {pred_delta:+.1f}% ({pstatus})")
+                self.health_labels['pred']['desc'].setText(f"Prediction drift: {pred_delta:+.1f}%")
+                self.health_labels['pred']['chip'].setText(pstatus)
+                self.health_labels['pred']['chip'].setObjectName('ChipWarning' if pstatus=='Warning' else 'ChipStable')
+                try:
+                    self.health_labels['pred']['chip'].setStyleSheet("")
+                except Exception:
+                    pass
             else:
-                self.health_labels['pred'].setText("Prediction drift: N/A")
+                self.health_labels['pred']['desc'].setText("Prediction drift: N/A")
+                self.health_labels['pred']['chip'].setText("")
 
             # Feature drift (proxy: high-risk change)
             quarters = self._get_quarterly_high_risk_rate(2)
             feat_delta = (quarters[-1]['rate'] - quarters[-2]['rate']) * 100 if len(quarters) >= 2 else 0.0
             fstatus = 'Warning' if abs(feat_delta) >= 10.0 else 'Stable'
-            self.health_labels['feat'].setText(f"PAY_0 drift: {feat_delta:+.1f}% ({fstatus})")
+            self.health_labels['feat']['desc'].setText(f"PAY_0 drift: {feat_delta:+.1f}%")
+            self.health_labels['feat']['chip'].setText(fstatus)
+            self.health_labels['feat']['chip'].setObjectName('ChipWarning' if fstatus=='Warning' else 'ChipStable')
+            try:
+                self.health_labels['feat']['chip'].setStyleSheet("")
+            except Exception:
+                pass
 
             # Model accuracy (placeholder)
-            self.health_labels['acc'].setText("Model accuracy: Stable")
+            acc_pct = None
+            try:
+                y_test = self.eval_data.get('y_test') if self.eval_data else None
+                preds_dict = self.eval_data.get('predictions', {}) if self.eval_data else {}
+                preds = preds_dict.get('XGBoost', None)
+                if preds is None and preds_dict:
+                    first_key = next(iter(preds_dict))
+                    preds = preds_dict.get(first_key)
+                if y_test is not None and preds is not None and len(y_test) == len(preds):
+                    labels = (np.array(preds) >= 0.5).astype(int)
+                    acc_pct = float((labels == np.array(y_test)).mean()) * 100.0
+            except Exception:
+                acc_pct = None
+            if acc_pct is not None:
+                self.health_labels['acc']['desc'].setText(f"Model accuracy: {acc_pct:.1f}%")
+                astatus = 'Stable' if acc_pct >= 75.0 else 'Warning'
+                self.health_labels['acc']['chip'].setText(astatus)
+                self.health_labels['acc']['chip'].setObjectName('ChipStable' if astatus=='Stable' else 'ChipWarning')
+            else:
+                self.health_labels['acc']['desc'].setText("Model accuracy: N/A")
+                self.health_labels['acc']['chip'].setText("")
+            try:
+                self.health_labels['acc']['chip'].setStyleSheet("")
+            except Exception:
+                pass
         except Exception:
-            self.health_labels['data'].setText(f"Default rate drift: N/A")
-            self.health_labels['pred'].setText(f"Prediction drift: N/A")
-            self.health_labels['feat'].setText(f"Feature drift: N/A")
-            self.health_labels['acc'].setText("Model accuracy: N/A")
+            self.health_labels['data']['desc'].setText(f"Default rate drift: N/A")
+            self.health_labels['pred']['desc'].setText(f"Prediction drift: N/A")
+            self.health_labels['feat']['desc'].setText(f"Feature drift: N/A")
+            self.health_labels['acc']['desc'].setText("Model accuracy: N/A")
     def _update_kpi_cards(self):
         stats = None
         if self.query_service and hasattr(self.query_service, 'get_prediction_stats'):
@@ -522,6 +715,14 @@ class DashboardTabWidget(QWidget):
         # Fallback demo
         return [{'period': f'2025-{str(m).zfill(2)}', 'rate': 0.12 + (m%3)*0.02} for m in range(1,7)]
 
+    def _get_monthly_default_rate_recent(self, months: int = 12):
+        if self.query_service and hasattr(self.query_service, 'get_monthly_default_rate_recent'):
+            try:
+                return self.query_service.get_monthly_default_rate_recent(months)
+            except Exception:
+                pass
+        return []
+
     def _get_quarterly_high_risk_rate(self, quarters: int = 8):
         if self.query_service:
             try:
@@ -531,6 +732,13 @@ class DashboardTabWidget(QWidget):
         # Fallback demo
         return [{'period': f'2025-Q{q}', 'rate': 0.22 + (q%2)*0.03} for q in range(1,5)]
 
+    def _get_quarterly_high_risk_rate_recent(self, quarters: int = 8):
+        if self.query_service and hasattr(self.query_service, 'get_quarterly_high_risk_rate_recent'):
+            try:
+                return self.query_service.get_quarterly_high_risk_rate_recent(quarters)
+            except Exception:
+                pass
+        return []
     def _get_demographics_counts(self, since_iso: str | None = None):
         if self.query_service:
             try:

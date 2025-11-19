@@ -137,7 +137,6 @@ def plot_feature_importance(ax, feature_importance: Dict, top_n: int = 10) -> No
     colors_list = ['darkred' if f == 'PAY_0' else 'steelblue' for f in features]
     ax.barh(features, importance, color=colors_list)
     ax.set_xlabel('Importance Score', fontsize=10)
-    ax.set_title('Top 10 Feature Importance (XGBoost)', fontsize=12, fontweight='bold')
     ax.invert_yaxis()
     ax.grid(axis='x', alpha=0.3)
 
@@ -153,11 +152,10 @@ def plot_confusion_matrix(ax, cm: np.ndarray, model_name: str = 'XGBoost') -> No
     """
     # Vẽ heatmap with rotation=0 to avoid recursion
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax, 
-                cbar=True, square=True, linewidths=1, linecolor='black')
+                cbar=False, square=True, linewidths=1, linecolor='black')
     
     ax.set_xlabel('Predicted Label', fontsize=10)
     ax.set_ylabel('True Label', fontsize=10)
-    ax.set_title(f'Confusion Matrix - {model_name}', fontsize=12, fontweight='bold')
     ax.set_xticklabels(['No Default (0)', 'Default (1)'], rotation=0)
     ax.set_yticklabels(['No Default (0)', 'Default (1)'], rotation=0)
 
@@ -183,7 +181,6 @@ def plot_roc_curves(ax, roc_data: Dict) -> None:
     
     ax.set_xlabel('False Positive Rate', fontsize=10)
     ax.set_ylabel('True Positive Rate', fontsize=10)
-    ax.set_title('ROC Curves Comparison', fontsize=12, fontweight='bold')
     ax.legend(loc='lower right', fontsize=9)
     ax.grid(alpha=0.3)
     ax.set_xlim([0, 1])
@@ -239,7 +236,6 @@ def plot_risk_distribution(ax, y_test: np.ndarray, predictions: Dict) -> None:
     
     ax.set_xlabel('Predicted Probability Range', fontsize=10)
     ax.set_ylabel('Actual Default Rate (%)', fontsize=10)
-    ax.set_title('Risk Distribution by Probability Bins', fontsize=12, fontweight='bold')
     ax.set_xticks(x)
     ax.set_xticklabels(bin_labels, rotation=0)
     ax.grid(axis='y', alpha=0.3)
