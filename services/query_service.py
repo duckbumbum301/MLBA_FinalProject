@@ -178,6 +178,28 @@ class QueryService:
             '80_100': int(row[4] or 0),
         }
 
+    def get_risk_bucket_counts_since(self, since_iso: str) -> Dict[str, int]:
+        query = """
+            SELECT 
+                SUM(CASE WHEN probability >= 0 AND probability < 0.20 THEN 1 ELSE 0 END) AS b0_20,
+                SUM(CASE WHEN probability >= 0.20 AND probability < 0.40 THEN 1 ELSE 0 END) AS b20_40,
+                SUM(CASE WHEN probability >= 0.40 AND probability < 0.60 THEN 1 ELSE 0 END) AS b40_60,
+                SUM(CASE WHEN probability >= 0.60 AND probability < 0.80 THEN 1 ELSE 0 END) AS b60_80,
+                SUM(CASE WHEN probability >= 0.80 AND probability <= 1.00 THEN 1 ELSE 0 END) AS b80_100
+            FROM predictions_log
+            WHERE created_at >= %s
+        """
+        row = self.db.fetch_one(query, (since_iso,))
+        if not row:
+            return {'0_20': 0, '20_40': 0, '40_60': 0, '60_80': 0, '80_100': 0}
+        return {
+            '0_20': int(row[0] or 0),
+            '20_40': int(row[1] or 0),
+            '40_60': int(row[2] or 0),
+            '60_80': int(row[3] or 0),
+            '80_100': int(row[4] or 0),
+        }
+
     def get_monthly_default_rate(self, months: int = 12) -> List[Dict]:
         """Tính % default (predicted_label=1) theo tháng gần nhất, bổ sung các tháng thiếu với 0"""
         # Lấy aggregate theo tháng hiện có
@@ -237,6 +259,35 @@ class QueryService:
             result.append({'period': k, 'rate': rate})
         return result
 
+    def get_weekly_default_rate(self, weeks: int = 8) -> List[Dict]:
+        query = """
+            SELECT YEAR(created_at) AS y, WEEK(created_at, 3) AS w,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN predicted_label = 1 THEN 1 ELSE 0 END) AS defaults
+            FROM predictions_log
+            GROUP BY y, w
+            ORDER BY y ASC, w ASC
+        """
+        rows = self.db.fetch_all(query)
+        agg = {f"{int(r[0])}-W{int(r[1]):02d}": (int(r[2] or 0), int(r[3] or 0)) for r in rows}
+        # Build continuous series of last N weeks
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        keys = []
+        cur = now
+        for _ in range(weeks):
+            y = cur.isocalendar().year
+            w = cur.isocalendar().week
+            keys.append(f"{y}-W{w:02d}")
+            cur = cur - timedelta(days=7)
+        keys.reverse()
+        result = []
+        for k in keys:
+            total, defaults = agg.get(k, (0, 0))
+            rate = (defaults / total) if total > 0 else 0.0
+            result.append({'period': k, 'rate': rate})
+        return result
+
     def get_demographics_counts(self) -> tuple:
         """Lấy thống kê số lượng khách hàng theo Gender, Marriage, Education"""
         # Gender
@@ -249,6 +300,162 @@ class QueryService:
         rows = self.db.fetch_all("SELECT EDUCATION, COUNT(*) FROM customers GROUP BY EDUCATION")
         education_map = {self._map_education_label(r[0]): int(r[1]) for r in rows}
         return gender_map, marriage_map, education_map
+
+    def get_demographics_counts_since(self, since_iso: str) -> tuple:
+        """Thống kê theo thời gian: join predictions_log để chỉ tính các khách hàng có dự báo trong khoảng kể từ since"""
+        try:
+            # Gender by predictions within range
+            rows = self.db.fetch_all(
+                """
+                SELECT c.SEX, COUNT(*)
+                FROM customers c
+                JOIN predictions_log p ON p.customer_id = c.id
+                WHERE p.created_at >= %s
+                GROUP BY c.SEX
+                """,
+                (since_iso,)
+            )
+            gender_map = {self._map_sex_label(r[0]): int(r[1]) for r in rows}
+        except Exception:
+            rows = self.db.fetch_all("SELECT SEX, COUNT(*) FROM customers GROUP BY SEX")
+            gender_map = {self._map_sex_label(r[0]): int(r[1]) for r in rows}
+
+        try:
+            rows = self.db.fetch_all(
+                """
+                SELECT c.MARRIAGE, COUNT(*)
+                FROM customers c
+                JOIN predictions_log p ON p.customer_id = c.id
+                WHERE p.created_at >= %s
+                GROUP BY c.MARRIAGE
+                """,
+                (since_iso,)
+            )
+            marriage_map = {self._map_marriage_label(r[0]): int(r[1]) for r in rows}
+        except Exception:
+            rows = self.db.fetch_all("SELECT MARRIAGE, COUNT(*) FROM customers GROUP BY MARRIAGE")
+            marriage_map = {self._map_marriage_label(r[0]): int(r[1]) for r in rows}
+
+        try:
+            rows = self.db.fetch_all(
+                """
+                SELECT c.EDUCATION, COUNT(*)
+                FROM customers c
+                JOIN predictions_log p ON p.customer_id = c.id
+                WHERE p.created_at >= %s
+                GROUP BY c.EDUCATION
+                """,
+                (since_iso,)
+            )
+            education_map = {self._map_education_label(r[0]): int(r[1]) for r in rows}
+        except Exception:
+            rows = self.db.fetch_all("SELECT EDUCATION, COUNT(*) FROM customers GROUP BY EDUCATION")
+            education_map = {self._map_education_label(r[0]): int(r[1]) for r in rows}
+
+        return gender_map, marriage_map, education_map
+
+    def get_shap_lite_importance_since(self, since_iso: str) -> Dict[str, float]:
+        """Tính điểm ảnh hưởng đơn giản theo thời gian (proxy):
+        - LIMIT_BAL: chênh lệch tỷ lệ high-risk giữa nhóm trên/ dưới trung bình
+        - AGE: chênh lệch tỷ lệ high-risk giữa nhóm >=30 và <30
+        - MARRIAGE: chênh lệch tối đa so với overall
+        - PAY_0, PAY_2: nếu có trong bảng customers hoặc bảng payment, cố gắng tính; nếu không có, trả 0.
+        """
+        def overall_high_rate():
+            row = self.db.fetch_one(
+                """
+                SELECT AVG(CASE WHEN probability >= 0.60 THEN 1 ELSE 0 END)
+                FROM predictions_log
+                WHERE created_at >= %s
+                """,
+                (since_iso,)
+            )
+            return float(row[0] or 0.0)
+
+        overall = overall_high_rate()
+        scores: Dict[str, float] = {}
+
+        # LIMIT_BAL split by average
+        try:
+            row = self.db.fetch_one("SELECT AVG(LIMIT_BAL) FROM customers")
+            avg_limit = float(row[0] or 0.0)
+            def_rate_hi = self.db.fetch_one(
+                """
+                SELECT AVG(CASE WHEN p.probability >= 0.60 THEN 1 ELSE 0 END)
+                FROM predictions_log p JOIN customers c ON p.customer_id = c.id
+                WHERE p.created_at >= %s AND c.LIMIT_BAL >= %s
+                """,
+                (since_iso, avg_limit)
+            )[0]
+            def_rate_lo = self.db.fetch_one(
+                """
+                SELECT AVG(CASE WHEN p.probability >= 0.60 THEN 1 ELSE 0 END)
+                FROM predictions_log p JOIN customers c ON p.customer_id = c.id
+                WHERE p.created_at >= %s AND c.LIMIT_BAL < %s
+                """,
+                (since_iso, avg_limit)
+            )[0]
+            scores['LIMIT_BAL'] = abs(float(def_rate_hi or 0.0) - float(def_rate_lo or 0.0))
+        except Exception:
+            scores['LIMIT_BAL'] = 0.0
+
+        # AGE split by 30
+        try:
+            def_rate_older = self.db.fetch_one(
+                """
+                SELECT AVG(CASE WHEN p.probability >= 0.60 THEN 1 ELSE 0 END)
+                FROM predictions_log p JOIN customers c ON p.customer_id = c.id
+                WHERE p.created_at >= %s AND c.AGE >= 30
+                """,
+                (since_iso,)
+            )[0]
+            def_rate_younger = self.db.fetch_one(
+                """
+                SELECT AVG(CASE WHEN p.probability >= 0.60 THEN 1 ELSE 0 END)
+                FROM predictions_log p JOIN customers c ON p.customer_id = c.id
+                WHERE p.created_at >= %s AND c.AGE < 30
+                """,
+                (since_iso,)
+            )[0]
+            scores['Tuổi'] = abs(float(def_rate_older or 0.0) - float(def_rate_younger or 0.0))
+        except Exception:
+            scores['Tuổi'] = 0.0
+
+        # MARRIAGE categories vs overall
+        try:
+            rows = self.db.fetch_all(
+                """
+                SELECT c.MARRIAGE,
+                       AVG(CASE WHEN p.probability >= 0.60 THEN 1 ELSE 0 END) AS rate
+                FROM predictions_log p JOIN customers c ON p.customer_id = c.id
+                WHERE p.created_at >= %s
+                GROUP BY c.MARRIAGE
+                """,
+                (since_iso,)
+            )
+            diffs = [abs(float(r[1] or 0.0) - overall) for r in rows]
+            scores['Tình trạng hôn nhân'] = max(diffs) if diffs else 0.0
+        except Exception:
+            scores['Tình trạng hôn nhân'] = 0.0
+
+        # PAY_0, PAY_2 (if available on customers)
+        for col, label in [('PAY_0', 'PAY_0'), ('PAY_2', 'PAY_2')]:
+            try:
+                rows = self.db.fetch_all(
+                    f"""
+                    SELECT c.{col}, AVG(CASE WHEN p.probability >= 0.60 THEN 1 ELSE 0 END) AS rate
+                    FROM predictions_log p JOIN customers c ON p.customer_id = c.id
+                    WHERE p.created_at >= %s
+                    GROUP BY c.{col}
+                    """,
+                    (since_iso,)
+                )
+                diffs = [abs(float(r[1] or 0.0) - overall) for r in rows]
+                scores[label] = max(diffs) if diffs else 0.0
+            except Exception:
+                scores[label] = 0.0
+
+        return scores
 
     def get_prediction_stats(self) -> Dict:
         query = """

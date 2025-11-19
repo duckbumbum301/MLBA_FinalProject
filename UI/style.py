@@ -65,8 +65,8 @@ QLabel#Heading3 { font-family: 'Poppins','Segoe UI','Arial'; font-size: 20px; fo
 #DashboardCardRed QLabel#KpiValue { color: #ffffff; font-family: 'Poppins','Segoe UI','Arial'; font-size: 24px; font-weight: 700; }
 
 #DashboardCardYellow { background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 #FFF1CC, stop:1 #F2C94C); border: none; border-radius: 16px; }
-#DashboardCardYellow QLabel#KpiTitle { color: #6b778c; font-family: 'Inter','Segoe UI','Arial'; font-size: 14px; }
-#DashboardCardYellow QLabel#KpiValue { color: #2c3e50; font-family: 'Poppins','Segoe UI','Arial'; font-size: 24px; font-weight: 700; }
+#DashboardCardYellow QLabel#KpiTitle { color: #ffffff; font-family: 'Inter','Segoe UI','Arial'; font-size: 14px; }
+#DashboardCardYellow QLabel#KpiValue { color: #ffffff; font-family: 'Poppins','Segoe UI','Arial'; font-size: 24px; font-weight: 700; }
 
 #ChartCard { background: #ffffff; border: 1px solid #dfe6ee; border-radius: 16px; }
 #ChartCard QLabel#ChartTitle { color: #2c3e50; font-family: 'Poppins','Segoe UI','Arial'; font-size: 16px; font-weight: 700; margin-bottom: 8px; }

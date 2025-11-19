@@ -370,20 +370,11 @@ class PredictionTabWidget(QWidget):
                             if label_item and label_item.widget():
                                 label_item.widget().setVisible(is_12months)
         
-        # Tương tự cho billing details
-        if hasattr(self, 'bill_amts') and hasattr(self, 'pay_amts'):
+        # Tương tự cho billing details (grid layout: có label riêng)
+        if hasattr(self, 'bill_amts') and hasattr(self, 'pay_amts') and hasattr(self, 'bill_labels') and hasattr(self, 'pay_labels'):
             for i in range(6, 12):  # Index 6-11 tương ứng tháng 7-12
-                self.bill_amts[i].setVisible(is_12months)
-                self.pay_amts[i].setVisible(is_12months)
-                # Ẩn labels
-                for widget in [self.bill_amts[i], self.pay_amts[i]]:
-                    for j in range(widget.parent().layout().count()):
-                        item = widget.parent().layout().itemAt(j)
-                        if item and item.widget() == widget:
-                            if j > 0:
-                                label_item = widget.parent().layout().itemAt(j - 1)
-                                if label_item and label_item.widget():
-                                    label_item.widget().setVisible(is_12months)
+                for w in [self.bill_amts[i], self.pay_amts[i], self.bill_labels[i], self.pay_labels[i]]:
+                    w.setVisible(is_12months)
     
     def random_payment_history(self):
         """Tự động điền random hợp lý cho lịch sử thanh toán"""
@@ -438,21 +429,32 @@ class PredictionTabWidget(QWidget):
             elif month_num == 1:
                 month_label += " (xa nhất)"
             
-            # BILL_AMT - Số dư sao kê
+            # Tạo một hàng: [Label Bill][Spin Bill]  [Label Pay][Spin Pay]
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0,0,0,0)
+            row_layout.setSpacing(12)
+
+            lbl_bill = QLabel(f"Số dư {month_label}:")
             spn_bill = QDoubleSpinBox()
             spn_bill.setRange(-1000000 * self.EXCHANGE_RATE, 10000000 * self.EXCHANGE_RATE)
             spn_bill.setValue(0)
             spn_bill.setToolTip(f"Số dư sao kê {month_label.lower()}")
-            form_layout.addRow(f"Số dư {month_label}:", spn_bill)
+            row_layout.addWidget(lbl_bill)
+            row_layout.addWidget(spn_bill)
             self.bill_amts.append(spn_bill)
-            
-            # PAY_AMT - Số tiền đã thanh toán
+
+            lbl_pay = QLabel(f"Thanh toán {month_label}:")
             spn_pay = QDoubleSpinBox()
             spn_pay.setRange(0, 10000000 * self.EXCHANGE_RATE)
             spn_pay.setValue(0)
             spn_pay.setToolTip(f"Số tiền đã thanh toán {month_label.lower()}")
-            form_layout.addRow(f"Thanh toán {month_label}:", spn_pay)
+            row_layout.addWidget(lbl_pay)
+            row_layout.addWidget(spn_pay)
             self.pay_amts.append(spn_pay)
+
+            row_layout.addStretch(1)
+            form_layout.addRow(row_widget)
         
         main_layout.addLayout(form_layout)
         group.setLayout(main_layout)

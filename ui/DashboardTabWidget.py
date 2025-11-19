@@ -4,7 +4,7 @@ Tab Dashboard với 4 biểu đồ đánh giá mô hình ML
 """
 import sys
 from pathlib import Path
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QPushButton, QHBoxLayout, QFrame, QLabel, QScrollArea, QComboBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QPushButton, QHBoxLayout, QFrame, QLabel, QScrollArea, QComboBox, QSizePolicy
 from PyQt6.QtCore import Qt
 import matplotlib
 matplotlib.use('QtAgg')  # PyQt6 compatible backend
@@ -27,10 +27,12 @@ class MatplotlibCanvas(FigureCanvas):
     """Canvas cho matplotlib plot trong PyQt6"""
     
     def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi)
+        fig = Figure(figsize=(width, height), dpi=dpi, constrained_layout=True)
         self.axes = fig.add_subplot(111)
         super().__init__(fig)
         self.setParent(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setMinimumHeight(320)
 
 
 class DashboardTabWidget(QWidget):
@@ -64,22 +66,21 @@ class DashboardTabWidget(QWidget):
         content = QWidget()
         main_layout = QVBoxLayout(content); main_layout.setContentsMargins(16,16,16,16); main_layout.setSpacing(16)
         
-        # Filter + Refresh (Admin only)
+        # Filter + Refresh
         button_layout = QHBoxLayout()
-        if hasattr(self.user, 'is_admin') and self.user.is_admin():
-            lbl = QLabel('Kỳ:')
-            self.cmbPeriod = QComboBox(); self.cmbPeriod.addItems(['Tuần','Tháng','Quý'])
-            self.cmbPeriod.setCurrentText('Tháng')
-            self.cmbPeriod.currentTextChanged.connect(self._on_period_kind_changed)
-            lbl2 = QLabel('Số kỳ:')
-            self.cmbCount = QComboBox(); self.cmbCount.addItems(['8','12'])
-            self.cmbCount.setCurrentText('12')
-            self.cmbCount.currentTextChanged.connect(self._on_period_count_changed)
-            button_layout.addWidget(lbl)
-            button_layout.addWidget(self.cmbPeriod)
-            button_layout.addSpacing(12)
-            button_layout.addWidget(lbl2)
-            button_layout.addWidget(self.cmbCount)
+        lbl = QLabel('Kỳ:')
+        self.cmbPeriod = QComboBox(); self.cmbPeriod.addItems(['Tháng','Quý'])
+        self.cmbPeriod.setCurrentText('Tháng')
+        self.cmbPeriod.currentTextChanged.connect(self._on_period_kind_changed)
+        lbl2 = QLabel('Số kỳ:')
+        self.cmbCount = QComboBox(); self._set_count_items('month')
+        self.cmbCount.setCurrentText('12')
+        self.cmbCount.currentTextChanged.connect(self._on_period_count_changed)
+        button_layout.addWidget(lbl)
+        button_layout.addWidget(self.cmbPeriod)
+        button_layout.addSpacing(12)
+        button_layout.addWidget(lbl2)
+        button_layout.addWidget(self.cmbCount)
         button_layout.addStretch()
         
         self.btnRefresh = QPushButton("🔄 Refresh Dashboard")
@@ -134,27 +135,32 @@ class DashboardTabWidget(QWidget):
         grid_layout = QGridLayout(); grid_layout.setHorizontalSpacing(16); grid_layout.setVerticalSpacing(16)
         
         # 4 canvas có thể tái sử dụng: admin (ML) hoặc user (vận hành)
-        def make_chart(title_text: str, w: float = 7.0, h: float = 6.5):
+        def make_chart(title_text: str, w: float = 7.0, h: float = 4.8):
             card = QFrame(); card.setObjectName('ChartCard')
-            v = QVBoxLayout(card); v.setContentsMargins(12,12,12,12)
+            v = QVBoxLayout(card); v.setContentsMargins(12,12,12,12); v.setSpacing(8)
             t = QLabel(title_text); t.setObjectName('ChartTitle'); v.addWidget(t)
             canvas = MatplotlibCanvas(self, width=w, height=h); v.addWidget(canvas)
-            return card, canvas
+            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            v.setStretch(1, 1)
+            return card, canvas, t
 
-        card_tl, self.canvas_top_left = make_chart('Tỷ lệ theo risk bucket', 5.5, 6.5)
-        card_tr, self.canvas_top_right = make_chart('Trend vỡ nợ theo thời gian', 8.0, 7.8)
-        card_bl, self.canvas_bottom_left = make_chart('Top 5 yếu tố ảnh hưởng')
-        card_br, self.canvas_bottom_right = make_chart('Phân bổ khách hàng theo nhóm')
+        card_tl, self.canvas_top_left, self.title_top_left = make_chart('Tỷ lệ theo risk bucket', 6.0, 4.8)
+        card_tr, self.canvas_top_right, self.title_top_right = make_chart('Trend vỡ nợ theo thời gian', 8.0, 5.8)
+        card_bl, self.canvas_bottom_left, self.title_bottom_left = make_chart('Top 5 yếu tố ảnh hưởng', 6.5, 5.4)
+        card_br, self.canvas_bottom_right, self.title_bottom_right = make_chart('Phân bổ khách hàng theo nhóm', 6.5, 4.8)
 
         grid_layout.addWidget(card_tl, 0, 0)
         grid_layout.addWidget(card_tr, 0, 1)
         grid_layout.addWidget(card_bl, 1, 0)
         grid_layout.addWidget(card_br, 1, 1)
-        # 6:4 width ratio (Trend wider, Buckets narrower)
-        grid_layout.setColumnStretch(0, 4)
-        grid_layout.setColumnStretch(1, 6)
+        # 50:55 width ratio (Trend slightly wider than Buckets)
+        grid_layout.setColumnStretch(0, 50)
+        grid_layout.setColumnStretch(1, 55)
         
         main_layout.addLayout(grid_layout)
+        main_layout.addStretch(1)
+        content.setMinimumHeight(1000)
         scroll.setWidget(content)
         root.addWidget(scroll)
     
@@ -164,10 +170,24 @@ class DashboardTabWidget(QWidget):
             if hasattr(self.user, 'is_admin') and self.user.is_admin():
                 # Admin: giữ dashboard ML hiện tại
                 self.eval_data = load_evaluation_data()
+                try:
+                    self.title_top_left.setText('Tầm quan trọng đặc trưng (Feature Importance)')
+                    self.title_top_right.setText('Ma trận nhầm lẫn (Confusion Matrix)')
+                    self.title_bottom_left.setText('Đường cong ROC (ROC Curves)')
+                    self.title_bottom_right.setText('Phân phối rủi ro (Risk Distribution)')
+                except Exception:
+                    pass
                 self._plot_admin_ml_dashboard()
                 self._update_health_card()
             else:
                 # User: dashboard vận hành
+                try:
+                    self.title_top_left.setText('Tỷ lệ theo risk bucket')
+                    self.title_top_right.setText('Trend vỡ nợ theo thời gian')
+                    self.title_bottom_left.setText('Top 5 yếu tố ảnh hưởng')
+                    self.title_bottom_right.setText('Phân bổ khách hàng theo nhóm')
+                except Exception:
+                    pass
                 self._plot_user_operational_dashboard()
                 self._update_kpi_cards()
             print("✓ Dashboard loaded successfully")
@@ -219,7 +239,8 @@ class DashboardTabWidget(QWidget):
         # 1. Risk buckets
         try:
             ax = self.canvas_top_left.axes; ax.clear()
-            buckets = self._get_risk_bucket_counts()
+            since = self._compute_since_iso(self.period_kind, self.period_count)
+            buckets = self._get_risk_bucket_counts(since)
             labels = ['0–20%', '20–40%', '40–60%', '60–80%', '80–100%']
             values = [buckets.get('0_20', 0), buckets.get('20_40', 0), buckets.get('40_60', 0), buckets.get('60_80', 0), buckets.get('80_100', 0)]
             colors = self._assign_rank_colors(values)
@@ -230,7 +251,6 @@ class DashboardTabWidget(QWidget):
                     ax.set_ylim(0, max_v * 1.25)
             except Exception:
                 pass
-            ax.set_title('Tỷ lệ khách hàng theo risk bucket', fontsize=12, fontweight='bold')
             ax.set_ylabel('Số lượng khách hàng')
             ax.grid(axis='y', alpha=0.3)
             for bar in bars:
@@ -242,45 +262,52 @@ class DashboardTabWidget(QWidget):
         # 2. Trend theo thời gian
         try:
             ax = self.canvas_top_right.axes; ax.clear()
-            monthly = self._get_monthly_default_rate()
-            quarters = self._get_quarterly_high_risk_rate()
-            if monthly:
-                xs = [m['period'] for m in monthly]
-                ys = [m['rate']*100 for m in monthly]
-                ax.plot(xs, ys, marker='o', color='#2F80ED', label='% default theo tháng')
-            if quarters:
-                xq = [q['period'] for q in quarters]
-                yq = [q['rate']*100 for q in quarters]
-                ax.plot(xq, yq, marker='s', color='#F2994A', label='% high-risk theo quý')
-            ax.set_title('Trend vỡ nợ theo thời gian', fontsize=12, fontweight='bold')
+            if self.period_kind == 'quarter':
+                quarters = self._get_quarterly_high_risk_rate(self.period_count)
+                if quarters:
+                    xq = [q['period'] for q in quarters]
+                    yq = [q['rate']*100 for q in quarters]
+                    ax.plot(xq, yq, marker='s', color='#F2994A', label='% high-risk theo quý')
+            else:
+                monthly = self._get_monthly_default_rate(self.period_count)
+                if monthly:
+                    xs = [m['period'] for m in monthly]
+                    ys = [m['rate']*100 for m in monthly]
+                    ax.plot(xs, ys, marker='o', color='#2F80ED', label='% default theo tháng')
             ax.set_ylabel('%')
             ax.grid(alpha=0.3)
             try:
-                ax.tick_params(axis='x', labelrotation=45, labelsize=10)
+                ax.tick_params(axis='x', labelrotation=45, labelsize=11, pad=8)
                 ax.margins(x=0.02)
             except Exception:
                 pass
             ax.legend(fontsize=9)
             try:
-                self.canvas_top_right.figure.subplots_adjust(bottom=0.22)
-                self.canvas_top_right.figure.tight_layout()
+                self.canvas_top_right.figure.subplots_adjust(bottom=0.36)
             except Exception:
                 pass
             self.canvas_top_right.draw()
         except Exception as e:
             print(f"⚠ Lỗi vẽ trend: {e}")
 
-        # 3. SHAP-lite Top 5 yếu tố
+        # 3. SHAP-lite Top 5 yếu tố (lọc theo thời gian)
         try:
             ax = self.canvas_bottom_left.axes; ax.clear()
-            features = ['PAY_0','PAY_2','LIMIT_BAL','Tình trạng hôn nhân','Tuổi']
-            scores = [0.25, 0.15, 0.12, 0.03, 0.06]
+            since = self._compute_since_iso(self.period_kind, self.period_count)
+            shap = self._get_shap_lite_features(since)
+            items = sorted(shap.items(), key=lambda kv: kv[1], reverse=True)[:5]
+            features = [k for k,_ in items]
+            scores = [v for _,v in items]
             shap_colors = ['#2F80ED','#F2994A','#27AE60','#EB5757','#EB5757']
-            ax.barh(features, scores, color=shap_colors)
-            ax.set_xlabel('Tầm ảnh hưởng (giả lập)')
-            ax.set_title('Top 5 yếu tố ảnh hưởng (SHAP-lite)', fontsize=12, fontweight='bold')
+            features_display = [('Tình trạng\nhôn nhân' if k == 'Tình trạng hôn nhân' else k) for k in features]
+            ax.barh(features_display, scores, color=shap_colors[:len(scores)])
+            ax.set_xlabel('Tầm ảnh hưởng (proxy)', labelpad=6)
             ax.invert_yaxis()
             ax.grid(axis='x', alpha=0.3)
+            try:
+                self.canvas_bottom_left.figure.subplots_adjust(bottom=0.28)
+            except Exception:
+                pass
             self.canvas_bottom_left.draw()
         except Exception as e:
             print(f"⚠ Lỗi vẽ SHAP-lite: {e}")
@@ -293,18 +320,17 @@ class DashboardTabWidget(QWidget):
             ax1 = fig.add_subplot(gs[0,0])
             ax2 = fig.add_subplot(gs[0,1])
             ax3 = fig.add_subplot(gs[0,2])
-            gender, marriage, education = self._get_demographics_counts()
+            since = self._compute_since_iso(self.period_kind, self.period_count)
+            gender, marriage, education = self._get_demographics_counts(since)
             def pie(ax, data, title):
                 labels = [str(k) for k in data.keys()]
                 sizes = [int(v) for v in data.values()]
                 if sum(sizes)==0:
                     ax.text(0.5,0.5,'No data', ha='center', va='center', transform=ax.transAxes)
-                    ax.set_title(title)
                     return
                 colors = self._assign_rank_colors(sizes)
                 ax.pie(sizes, labels=labels, autopct='%1.0f%%', startangle=90, colors=colors, textprops={'fontsize':8})
                 ax.axis('equal')
-                ax.set_title(title, fontsize=10)
             pie(ax1, gender, 'Gender')
             pie(ax2, marriage, 'Marriage Status')
             pie(ax3, education, 'Education')
@@ -392,13 +418,27 @@ class DashboardTabWidget(QWidget):
         self.load_and_plot_data()
 
     def _on_period_kind_changed(self, text: str):
-        self.period_kind = {'Tuần':'week','Tháng':'month','Quý':'quarter'}.get(text, 'month')
+        self.period_kind = {'Tháng':'month','Quý':'quarter'}.get(text, 'month')
+        self._set_count_items(self.period_kind)
+        # Reset default count
+        self.period_count = 12 if self.period_kind == 'month' else 4
+        self.refresh_dashboard()
 
     def _on_period_count_changed(self, text: str):
         try:
             self.period_count = int(text)
         except Exception:
             self.period_count = 12
+        self.refresh_dashboard()
+
+    def _set_count_items(self, kind: str):
+        self.cmbCount.clear()
+        if kind == 'month':
+            for v in ['3','6','9','12']:
+                self.cmbCount.addItem(v)
+        else:
+            for v in ['1','2','3','4']:
+                self.cmbCount.addItem(v)
 
     # ===================== Data aggregation helpers =====================
     def _update_health_card(self):
@@ -462,9 +502,11 @@ class DashboardTabWidget(QWidget):
             self.kpi_cards['high_rate'].setText(f"{high_rate*100:.1f}%")
             self.kpi_cards['avg_prob'].setText(f"{stats.get('avg_probability',0.0)*100:.1f}%")
 
-    def _get_risk_bucket_counts(self):
+    def _get_risk_bucket_counts(self, since_iso: str | None = None):
         if self.query_service:
             try:
+                if since_iso and hasattr(self.query_service, 'get_risk_bucket_counts_since'):
+                    return self.query_service.get_risk_bucket_counts_since(since_iso)
                 return self.query_service.get_risk_bucket_counts()
             except Exception:
                 pass
@@ -489,9 +531,11 @@ class DashboardTabWidget(QWidget):
         # Fallback demo
         return [{'period': f'2025-Q{q}', 'rate': 0.22 + (q%2)*0.03} for q in range(1,5)]
 
-    def _get_demographics_counts(self):
+    def _get_demographics_counts(self, since_iso: str | None = None):
         if self.query_service:
             try:
+                if since_iso and hasattr(self.query_service, 'get_demographics_counts_since'):
+                    return self.query_service.get_demographics_counts_since(since_iso)
                 return self.query_service.get_demographics_counts()
             except Exception:
                 pass
@@ -501,6 +545,15 @@ class DashboardTabWidget(QWidget):
             {'Độc thân': 55, 'Kết hôn': 35, 'Khác': 10},
             {'Trung học': 40, 'Đại học': 45, 'Cao học': 15}
         )
+
+    def _get_shap_lite_features(self, since_iso: str | None = None):
+        if self.query_service and since_iso and hasattr(self.query_service, 'get_shap_lite_importance_since'):
+            try:
+                return self.query_service.get_shap_lite_importance_since(since_iso)
+            except Exception:
+                pass
+        # Fallback demo scores
+        return {'PAY_0': 0.25, 'PAY_2': 0.15, 'LIMIT_BAL': 0.12, 'Tình trạng hôn nhân': 0.03, 'Tuổi': 0.06}
 
     def _assign_rank_colors(self, values):
         if not values:
@@ -515,3 +568,27 @@ class DashboardTabWidget(QWidget):
         if len(idxs) >= 3:
             colors[idxs[2]] = '#27AE60'
         return colors
+    def _get_weekly_default_rate(self, weeks: int = 8):
+        if self.query_service and hasattr(self.query_service, 'get_weekly_default_rate'):
+            try:
+                return self.query_service.get_weekly_default_rate(weeks)
+            except Exception:
+                pass
+        # Fallback demo
+        return [{'period': f'2025-W{str(w).zfill(2)}', 'rate': 0.05 + (w%3)*0.01} for w in range(1, weeks+1)]
+
+    def _compute_since_iso(self, kind: str, count: int) -> str:
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        if kind == 'week':
+            since = now - timedelta(days=7*count)
+        else:
+            # months/quarters
+            months = count if kind == 'month' else count*3
+            y = now.year; m = now.month
+            for _ in range(months):
+                m -= 1
+                if m == 0:
+                    m = 12; y -= 1
+            since = now.replace(year=y, month=m, day=1)
+        return since.strftime('%Y-%m-%d')

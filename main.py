@@ -5,15 +5,14 @@ Chạy: python main.py hoặc py -3.12 main.py
 import sys
 from pathlib import Path
 
-from UI.LoginPage import LoginPage
-from UI.MainWindow import MainWindow
-
 # Add project root to path
 project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
 
 from PyQt6.QtWidgets import QApplication
-
+from UI.LoginPage import LoginPage
+from UI.MainWindow import MainWindow
+from UI.user_model import User as SimpleUser
 
 
 class CreditRiskApp:
