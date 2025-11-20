@@ -31,7 +31,7 @@ CREATE TABLE `model_thresholds` (
   PRIMARY KEY (`id`),
   KEY `idx_model` (`model_name`),
   KEY `idx_created` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -40,7 +40,7 @@ CREATE TABLE `model_thresholds` (
 
 LOCK TABLES `model_thresholds` WRITE;
 /*!40000 ALTER TABLE `model_thresholds` DISABLE KEYS */;
-INSERT INTO `model_thresholds` VALUES (1,'XGBoost',0.5800,'admin','2025-11-20 05:03:20');
+INSERT INTO `model_thresholds` VALUES (1,'XGBoost',0.5800,'admin','2025-11-20 05:03:20'),(2,'XGBoost',0.5500,'admin','2025-11-20 11:58:28'),(3,'XGBoost',0.3700,'admin','2025-11-20 12:52:35'),(4,'XGBoost',0.3700,'admin','2025-11-20 13:28:46'),(5,'LightGBM',0.5100,'admin','2025-11-20 14:27:20'),(6,'XGBoost',0.3700,'admin','2025-11-20 14:47:00'),(7,'XGBoost',0.3700,'admin','2025-11-20 14:49:01'),(8,'LightGBM',0.5100,'admin','2025-11-20 18:54:04'),(9,'LightGBM',0.5100,'admin','2025-11-20 18:56:49'),(10,'LightGBM',0.5400,'admin','2025-11-20 18:56:57');
 /*!40000 ALTER TABLE `model_thresholds` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -53,4 +53,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-20  5:05:40
+-- Dump completed on 2025-11-20 19:43:41

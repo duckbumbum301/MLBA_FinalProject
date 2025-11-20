@@ -35,7 +35,7 @@ CREATE TABLE `user` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
   KEY `idx_username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -44,7 +44,7 @@ CREATE TABLE `user` (
 
 LOCK TABLES `user` WRITE;
 /*!40000 ALTER TABLE `user` DISABLE KEYS */;
-INSERT INTO `user` VALUES (1,'babyshark','$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm','User','2025-11-16 17:49:13','Nhân viên A',NULL,'2025-11-18 12:16:41',1),(2,'fathershark','$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm','Admin','2025-11-16 17:49:13','Quản trị viên',NULL,'2025-11-20 05:03:11',1),(3,'momshark','$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm','User','2025-11-16 17:49:13','Nhân viên B',NULL,'2025-11-20 03:11:10',1);
+INSERT INTO `user` VALUES (1,'babyshark','$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm','User','2025-11-16 17:49:13','Nhân viên A',NULL,'2025-11-18 12:16:41',1),(2,'fathershark','$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm','Admin','2025-11-16 17:49:13','Quản trị viên',NULL,'2025-11-20 18:52:28',1),(3,'momshark','$2b$12$3jGm14C9GlOONZhCsAHhPuQmGja08lPvreGq3SQWQiGRYSMXbcsLm','User','2025-11-16 17:49:13','Nhân viên B',NULL,'2025-11-20 18:14:53',1),(4,'ilovetranduythanh1','$2b$12$TH4gz3tb6YZC6mBMWArvx.GKa6whRix6gj7Rk7hu8XBAncSbTigeC','User','2025-11-20 13:22:05',NULL,NULL,'2025-11-20 18:32:56',1),(5,'ilovetranduythanh2','$2b$12$FU5KYBrhcpTbfRvxQ5hDpeAo8MhB/idwURdWqOTETMsj8Vwv8DycC','Admin','2025-11-20 13:25:48',NULL,NULL,'2025-11-20 19:39:27',1),(6,'meomeo1','$2b$12$4kX.ZGg6koVIgQZQ2pb3fOyyXVlKKXh6hafDXaHLVywZB/ll02B4K','User','2025-11-20 14:15:24',NULL,NULL,NULL,1),(7,'ilovetdt123','$2b$12$k8e88wxfewQyHTPUqFJoeenPfRHzcw/P6nLR4MoUItkgj5aLhnIfC','User','2025-11-20 14:15:30',NULL,NULL,NULL,1),(8,'meomeomeo','$2b$12$4hrvTdG4fM.ChQnhBtPGxu8HYQvmaO0bLRIHJND6bp/AmXlgpaRAm','User','2025-11-20 14:15:32',NULL,NULL,NULL,1),(9,'ilovetdt3','$2b$12$bH7aHy7VYtFWkooPn2l.lusq8blOzBBijYJQLCh834s4tDIk3u6ia','User','2025-11-20 14:21:36',NULL,NULL,NULL,1),(10,'ilovetdt5000','$2b$12$jBz3Yi9yDrWa8fuTdzOwq.1i2o69AgfzGdVFHqcNkT.Z7dGjtasZS','User','2025-11-20 18:22:27',NULL,NULL,NULL,1),(11,'ilovetdt1000000','$2b$12$OGrH66mbmdCo2SzJGaMs8OIn9Mw19qbgo0czhoZH5LmHKE0.U4kUu','User','2025-11-20 18:22:29',NULL,NULL,NULL,1),(12,'ilovetdt1000','$2b$12$.Ak33Ofktrjoj/QTk7L2K.aG74CvACYpPTWyUX.ZL0EWOD.xtcTVm','User','2025-11-20 18:22:30',NULL,NULL,NULL,1),(13,'welovemrtdt','$2b$12$3TyJaqvqTjwGh.hxKLEdzeKhczXiKbYRDn5eVbLpiDlhIPIveHhLS','User','2025-11-20 18:26:58',NULL,NULL,NULL,1),(14,'aenytdtlancuoi','$2b$12$pBjqGtQ08A.IxYzQPOWgIuAhxf0KdbuV6hAQVrUzeCu7dH6Q/I/a2','User','2025-11-20 19:39:34',NULL,NULL,NULL,1);
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -57,4 +57,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-20  5:05:41
+-- Dump completed on 2025-11-20 19:43:41

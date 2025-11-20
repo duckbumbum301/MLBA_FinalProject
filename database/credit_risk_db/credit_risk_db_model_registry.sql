@@ -53,7 +53,7 @@ CREATE TABLE `model_registry` (
 
 LOCK TABLES `model_registry` WRITE;
 /*!40000 ALTER TABLE `model_registry` DISABLE KEYS */;
-INSERT INTO `model_registry` VALUES (1,'XGBoost','Single','XGBoost','1.0',0.7604,0.8200,0.7800,0.8500,0.8100,1,NULL,'2025-11-17 16:39:32','admin','outputs/models/xgb_model.pkl',NULL,0.5800),(2,'LightGBM','Single','LightGBM','1.0',0.7811,0.8300,0.7900,0.8600,0.8200,0,NULL,'2025-11-17 16:39:32','admin','outputs/models/lgbm_model.pkl',NULL,NULL),(3,'LogisticRegression','Single','LogisticRegression','1.0',0.7099,0.7500,0.7200,0.7800,0.7400,0,NULL,'2025-11-17 16:39:32','admin','outputs/models/lr_cal_model.pkl',NULL,NULL);
+INSERT INTO `model_registry` VALUES (1,'XGBoost','Single','XGBoost','1.0',0.7604,0.8200,0.7800,0.8500,0.8100,0,NULL,'2025-11-17 16:39:32','admin','outputs/models/xgb_model.pkl',NULL,0.3700),(2,'LightGBM','Single','LightGBM','1.0',0.7811,0.8300,0.7900,0.8600,0.8200,1,NULL,'2025-11-17 16:39:32','ilovetranduythanh2','outputs/models/lgbm_model.pkl',NULL,0.5400),(3,'LogisticRegression','Single','LogisticRegression','1.0',0.7099,0.7500,0.7200,0.7800,0.7400,0,NULL,'2025-11-17 16:39:32','admin','outputs/models/lr_cal_model.pkl',NULL,NULL);
 /*!40000 ALTER TABLE `model_registry` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -66,4 +66,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-20  5:05:41
+-- Dump completed on 2025-11-20 19:43:41
