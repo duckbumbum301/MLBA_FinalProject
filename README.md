@@ -46,7 +46,7 @@ The Credit Risk Scoring System is a full-stack application designed to automate 
 
 ```
 MLBA_FinalProject/
-├── main.py                  # Main entry point
+├── tests/main.py            # Main entry point
 ├── ui/                      # UI components (PyQt6)
 ├── services/                # Business logic and database services
 ├── ml/                      # Machine learning scripts and models
