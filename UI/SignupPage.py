@@ -3,8 +3,9 @@ SignupPage - User registration with database storage
 """
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
                               QPushButton, QFrame, QSpacerItem, QSizePolicy, 
-                              QMessageBox, QComboBox)
+                              QMessageBox, QComboBox, QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QPixmap, QColor
 from pathlib import Path
 import sys
 
@@ -23,12 +24,21 @@ try:
 except Exception:
     AuthService = None
 
+try:
+    from .style import STYLE_QSS
+except Exception:
+    from style import STYLE_QSS
+
 class SignupPage(QWidget):
     go_login = pyqtSignal()
     signup_success = pyqtSignal()
 
     def __init__(self):
         super().__init__()
+        try:
+            self.setStyleSheet(STYLE_QSS)
+        except Exception:
+            pass
         self.setup_ui()
 
     def setup_ui(self):
@@ -56,14 +66,30 @@ class SignupPage(QWidget):
         center.setAlignment(Qt.AlignmentFlag.AlignTop)
         wrapper = QWidget()
         wrapper.setObjectName('Card')
-        wrapper.setMaximumWidth(520)
+        wrapper.setMaximumWidth(720)
+        try:
+            wrapper.setMinimumWidth(580)
+        except Exception:
+            pass
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(16)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(0,0,0,40))
+        wrapper.setGraphicsEffect(shadow)
         wlay = QVBoxLayout(wrapper)
         wlay.setContentsMargins(20, 20, 20, 20)
         
         # Title
         title = QLabel('Đăng ký tài khoản')
         title.setObjectName('CardTitle')
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         wlay.addWidget(title, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        logo = QLabel()
+        pix = QPixmap(str(base_dir / 'images' / 'logo.png'))
+        if not pix.isNull():
+            logo.setPixmap(pix.scaled(120, 120, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        wlay.addWidget(logo, alignment=Qt.AlignmentFlag.AlignHCenter)
         
         # Form
         form = QVBoxLayout()
@@ -99,12 +125,12 @@ class SignupPage(QWidget):
         actions.setSpacing(12)
         
         btnBack = QPushButton('Quay lại')
-        btnBack.setObjectName('SecondaryButton')
+        btnBack.setObjectName('Secondary')
         btnBack.clicked.connect(self.go_login.emit)
         actions.addWidget(btnBack)
         
         btnSignup = QPushButton('Đăng ký')
-        btnSignup.setObjectName('PrimaryButton')
+        btnSignup.setObjectName('Primary')
         btnSignup.clicked.connect(self.on_signup)
         actions.addWidget(btnSignup)
         
@@ -115,7 +141,7 @@ class SignupPage(QWidget):
         self.setLayout(root)
 
     def on_signup(self):
-        """Xử lý đăng ký tài khoản mới"""
+        """Gửi yêu cầu đăng ký tài khoản mới (chờ duyệt)"""
         username = self.txtUsername.text().strip()
         password = self.txtPassword.text()
         confirm = self.txtConfirm.text()
@@ -125,47 +151,44 @@ class SignupPage(QWidget):
         if not username or not password:
             QMessageBox.warning(self, "Lỗi", "Vui lòng điền đầy đủ thông tin!")
             return
-        
         if len(username) < 3 or len(username) > 20:
             QMessageBox.warning(self, "Lỗi", "Tên đăng nhập phải từ 3-20 ký tự!")
             return
-        
         if len(password) < 3:
             QMessageBox.warning(self, "Lỗi", "Mật khẩu phải có ít nhất 3 ký tự!")
             return
-        
         if password != confirm:
             QMessageBox.warning(self, "Lỗi", "Mật khẩu xác nhận không khớp!")
             return
         
-        # Create user
+        # Lưu yêu cầu đăng ký để admin duyệt
         try:
-            db = get_db_connector()
-            auth = AuthService(db)
-            
-            success = auth.create_user(username, password, role)
-            
-            if success:
-                QMessageBox.information(
-                    self, 
-                    "Thành công", 
-                    f"Đã tạo tài khoản '{username}' với vai trò {role}!\n\nVui lòng đăng nhập."
-                )
-                print(f"✓ Đã đăng ký: {username} ({role})")
-                self.clear_form()
-                self.go_login.emit()
-            else:
-                QMessageBox.critical(
-                    self, 
-                    "Lỗi", 
-                    f"Không thể tạo tài khoản!\nTên đăng nhập '{username}' có thể đã tồn tại."
-                )
-            
-            db.close()
-            
+            proj = Path(__file__).resolve().parents[1]
+            out_dir = proj / 'outputs' / 'system'
+            out_dir.mkdir(parents=True, exist_ok=True)
+            f = out_dir / 'signup_requests.json'
+            items = []
+            if f.exists():
+                import json
+                try:
+                    items = json.loads(f.read_text(encoding='utf-8'))
+                except Exception:
+                    items = []
+            from datetime import datetime
+            items.append({
+                'username': username,
+                'password': password,
+                'role': role,
+                'ts': datetime.now().isoformat(),
+                'status': 'pending'
+            })
+            import json
+            f.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding='utf-8')
+            QMessageBox.information(self, "Thành công", "Đã gửi yêu cầu đăng ký! Vui lòng chờ admin duyệt.")
+            self.clear_form()
+            self.go_login.emit()
         except Exception as e:
-            QMessageBox.critical(self, "Lỗi", f"Lỗi khi đăng ký: {str(e)}")
-            print(f"✗ Lỗi đăng ký: {e}")
+            QMessageBox.critical(self, "Lỗi", f"Không thể gửi yêu cầu đăng ký: {str(e)}")
     
     def clear_form(self):
         """Xóa form"""

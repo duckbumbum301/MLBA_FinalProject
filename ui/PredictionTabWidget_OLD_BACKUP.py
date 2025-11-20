@@ -670,7 +670,8 @@ class PredictionTabWidget(QWidget):
                 model_name=result.model_name,
                 predicted_label=result.label,
                 probability=result.probability,
-                raw_input_dict=input_dict
+                raw_input_dict=input_dict,
+                user_id=getattr(self.user, 'id', None)
             )
             try:
                 self.prediction_logged.emit()

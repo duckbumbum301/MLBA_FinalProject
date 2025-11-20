@@ -8,8 +8,9 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextBrowser, QLineEdit,
     QPushButton, QLabel, QComboBox, QMessageBox, QScrollArea, QFrame, QFileDialog
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QThread, QUrl, QTimer
-from PyQt6.QtGui import QFont, QGuiApplication
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QUrl, QTimer, QPropertyAnimation, QEasingCurve
+from PyQt6.QtGui import QFont, QGuiApplication, QPixmap, QColor
+from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 from datetime import datetime
 
 project_root = Path(__file__).resolve().parent.parent
@@ -76,10 +77,41 @@ class AIAssistantWidget(QWidget):
         layout.setContentsMargins(16, 12, 16, 16)
         
         # Title
-        title = QLabel("🤖 AI TRỢ LÝ - NYTDT")
+        title = QLabel("TRỢ LÝ AI TOP 1 VN - NYTDT")
         title.setObjectName('Heading3')
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(12)
+        shadow.setOffset(0, 2)
+        shadow.setColor(QColor(38, 99, 234, 90))
+        title.setGraphicsEffect(shadow)
+        header = QVBoxLayout()
+        header.setSpacing(6)
+        header.setContentsMargins(0,0,0,0)
+        header.addWidget(title)
+        underline = QFrame()
+        underline.setFixedHeight(4)
+        underline.setMaximumWidth(80)
+        underline.setStyleSheet("background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #2663ea, stop:1 #27ae60); border-radius: 2px;")
+        header.addWidget(underline, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addLayout(header)
+        anim = QPropertyAnimation(underline, b"maximumWidth")
+        anim.setDuration(1200)
+        anim.setStartValue(80)
+        anim.setEndValue(520)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._underline_anim = anim
+        self._underline_anim.start()
+        logo_path = project_root / 'UI' / 'images' / 'logo.png'
+        if logo_path.exists():
+            logo = QLabel('')
+            logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            pm = QPixmap(str(logo_path))
+            try:
+                logo.setPixmap(pm.scaledToHeight(56))
+            except Exception:
+                logo.setPixmap(pm)
+            layout.addWidget(logo)
         
         # Status indicator removed theo yêu cầu
         

@@ -875,7 +875,7 @@ class QueryService:
             SELECT p.customer_id, p.predicted_label, p.probability, p.created_at, p.raw_input_json, p.user_id,
                    c.customer_name, c.customer_id_card
             FROM predictions_log p
-            INNER JOIN customers c ON p.customer_id = c.id
+            LEFT JOIN customers c ON p.customer_id = c.id
             {where}
             ORDER BY p.created_at DESC
             LIMIT %s
@@ -888,7 +888,7 @@ class QueryService:
                     SELECT p.customer_id, p.predicted_label, p.probability, p.created_at, p.raw_input_json, p.user_id,
                            c.customer_name, c.customer_id_card
                     FROM predictions_log p
-                    INNER JOIN customers c ON p.customer_id = c.id
+                    LEFT JOIN customers c ON p.customer_id = c.id
                     WHERE DATE(p.created_at) = %s
                     ORDER BY p.probability DESC
                     LIMIT %s

@@ -47,10 +47,11 @@ class MainWindow(QMainWindow):
         try:
             self.tab.setTabBarAutoHide(True)
         except Exception:
-            try:
-                self.tab.tabBar().hide()
-            except Exception:
-                pass
+            pass
+        try:
+            self.tab.tabBar().hide()
+        except Exception:
+            pass
     
     def setup_menu(self):
         """Thiết lập menu bar với nút đăng xuất"""
@@ -121,6 +122,10 @@ class MainWindow(QMainWindow):
         try:
             current_idx = self.tab.currentIndex()
             self.on_tab_changed(current_idx)
+        except Exception:
+            pass
+        try:
+            self.update_notify_badge()
         except Exception:
             pass
 
@@ -229,7 +234,13 @@ class MainWindow(QMainWindow):
 
     def open_ai_popup(self):
         dlg = QDialog(self)
-        dlg.setWindowTitle('AI Copilot')
+        dlg.setWindowTitle('Trợ lý AI')
+        try:
+            icon_path = base_dir / 'images' / 'logo.png'
+            if icon_path.exists():
+                dlg.setWindowIcon(QIcon(str(icon_path)))
+        except Exception:
+            pass
         lay = QVBoxLayout(dlg)
         aiw = AIAssistantWidget(self.user, self._db_for_ai)
         lay.addWidget(aiw)
@@ -239,15 +250,22 @@ class MainWindow(QMainWindow):
     def update_notify_badge(self):
         try:
             proj = Path(__file__).resolve().parents[1]
-            f = proj / 'outputs' / 'system' / 'forgot_requests.json'
             cnt = 0
-            if f.exists():
-                import json
+            import json
+            f1 = proj / 'outputs' / 'system' / 'forgot_requests.json'
+            if f1.exists():
                 try:
-                    items = json.loads(f.read_text(encoding='utf-8'))
-                    cnt = len([i for i in items if str(i.get('status','')) == 'pending'])
+                    items = json.loads(f1.read_text(encoding='utf-8'))
+                    cnt += len([i for i in items if str(i.get('status','')) == 'pending'])
                 except Exception:
-                    cnt = 0
+                    pass
+            f2 = proj / 'outputs' / 'system' / 'signup_requests.json'
+            if f2.exists():
+                try:
+                    items2 = json.loads(f2.read_text(encoding='utf-8'))
+                    cnt += len([i for i in items2 if str(i.get('status','')) == 'pending'])
+                except Exception:
+                    pass
             self.lblNotifyBadge.setText(str(cnt))
             self.lblNotifyBadge.setVisible(cnt > 0 and self.user.is_admin())
             self.btnNotify.setVisible(self.user.is_admin())
@@ -267,6 +285,12 @@ class MainWindow(QMainWindow):
         dlg.setWindowTitle('Yêu cầu hỗ trợ')
         dlg.setFixedSize(780, 420)
         try:
+            icon_path = base_dir / 'images' / 'logo.png'
+            if icon_path.exists():
+                dlg.setWindowIcon(QIcon(str(icon_path)))
+        except Exception:
+            pass
+        try:
             dlg.setSizeGripEnabled(False)
         except Exception:
             pass
@@ -277,17 +301,25 @@ class MainWindow(QMainWindow):
             table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         except Exception:
             pass
-        btns = QHBoxLayout(); btnRefresh = QPushButton('Refresh'); btnResolve = QPushButton('Mark Resolved')
-        btns.addWidget(btnRefresh); btns.addWidget(btnResolve)
+        # Signup requests section
+        title2 = QLabel('Yêu cầu đăng ký tài khoản'); title2.setObjectName('SectionTitle'); title2.setAlignment(Qt.AlignmentFlag.AlignCenter); lay.addWidget(title2)
+        table2 = QTableWidget(0,3); table2.setHorizontalHeaderLabels(['Username','Role','Thời điểm'])
+        try:
+            table2.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        except Exception:
+            pass
+        btns = QHBoxLayout(); btnRefresh = QPushButton('Làm mới'); btnResolve = QPushButton('Đánh dấu đã xử lý'); btnResolve2 = QPushButton('Duyệt đăng ký')
+        btns.addWidget(btnRefresh); btns.addWidget(btnResolve); btns.addWidget(btnResolve2)
         lay.addWidget(table)
+        lay.addWidget(table2)
         lay.addLayout(btns)
         def load_items():
             try:
                 proj = Path(__file__).resolve().parents[1]
+                import json
                 f = proj / 'outputs' / 'system' / 'forgot_requests.json'
                 items = []
                 if f.exists():
-                    import json
                     items = json.loads(f.read_text(encoding='utf-8'))
                 pending = [i for i in items if str(i.get('status','')) == 'pending']
                 table.setRowCount(len(pending))
@@ -296,8 +328,19 @@ class MainWindow(QMainWindow):
                     table.setItem(i,1,QTableWidgetItem(str(r.get('email',''))))
                     table.setItem(i,2,QTableWidgetItem(str(r.get('username',''))))
                     table.setItem(i,3,QTableWidgetItem(str(r.get('ts',''))))
+                f2 = proj / 'outputs' / 'system' / 'signup_requests.json'
+                items2 = []
+                if f2.exists():
+                    items2 = json.loads(f2.read_text(encoding='utf-8'))
+                pending2 = [i for i in items2 if str(i.get('status','')) == 'pending']
+                table2.setRowCount(len(pending2))
+                for i, r in enumerate(pending2):
+                    table2.setItem(i,0,QTableWidgetItem(str(r.get('username',''))))
+                    table2.setItem(i,1,QTableWidgetItem(str(r.get('role',''))))
+                    table2.setItem(i,2,QTableWidgetItem(str(r.get('ts',''))))
             except Exception:
                 table.setRowCount(0)
+                table2.setRowCount(0)
         def mark_resolved():
             try:
                 row = table.currentRow()
@@ -320,8 +363,46 @@ class MainWindow(QMainWindow):
                 self.update_notify_badge()
             except Exception:
                 pass
+        def approve_signup():
+            try:
+                row = table2.currentRow()
+                if row < 0:
+                    return
+                username = table2.item(row,0).text() if table2.item(row,0) else ''
+                proj = Path(__file__).resolve().parents[1]
+                f2 = proj / 'outputs' / 'system' / 'signup_requests.json'
+                if not f2.exists():
+                    return
+                import json
+                items2 = json.loads(f2.read_text(encoding='utf-8'))
+                # Find request and create actual user
+                found = None
+                for i in items2:
+                    if str(i.get('username','')) == username and str(i.get('status','')) == 'pending':
+                        found = i
+                        break
+                if found is None:
+                    return
+                # Create DB user
+                try:
+                    from services.integration import get_db_connector
+                except Exception:
+                    from integration import get_db_connector
+                from services.auth_service import AuthService
+                db = get_db_connector()
+                auth = AuthService(db)
+                ok = auth.create_user(found.get('username',''), found.get('password','123'), found.get('role','User'))
+                db.close()
+                if ok:
+                    found['status'] = 'resolved'
+                f2.write_text(json.dumps(items2, ensure_ascii=False, indent=2), encoding='utf-8')
+                load_items()
+                self.update_notify_badge()
+            except Exception:
+                pass
         btnRefresh.clicked.connect(load_items)
         btnResolve.clicked.connect(mark_resolved)
+        btnResolve2.clicked.connect(approve_signup)
         load_items()
         dlg.exec()
 

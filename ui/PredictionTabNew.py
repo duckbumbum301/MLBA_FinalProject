@@ -5,7 +5,7 @@ Tab Dự Báo Rủi Ro với 41 trường input (12 tháng lịch sử) và hi�
 import sys
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout,
+    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout, QGridLayout,
     QLineEdit, QComboBox, QDoubleSpinBox, QPushButton, QLabel,
     QCheckBox, QMessageBox, QScrollArea, QRadioButton, QButtonGroup,
     QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy,
@@ -419,11 +419,14 @@ class PredictionTabWidget(QWidget):
         
         main_layout.addLayout(header_layout)
         
-        # === Form Layout ===
-        form_layout = QFormLayout()
-        form_layout.setHorizontalSpacing(12); form_layout.setVerticalSpacing(8)
-        form_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
-        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        # === Grid Layout: 4 cột (Label Bill, Spin Bill, Label Pay, Spin Pay) ===
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12); grid.setVerticalSpacing(8)
+        grid.setContentsMargins(0,0,0,0)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 0)
+        grid.setColumnStretch(2, 1)
+        grid.setColumnStretch(3, 0)
         
         self.bill_amts = []
         self.pay_amts = []
@@ -436,34 +439,29 @@ class PredictionTabWidget(QWidget):
             elif month_num == 1:
                 month_label += " (xa nhất)"
             
-            # Tạo một hàng: [Label Bill][Spin Bill]  [Label Pay][Spin Pay]
-            row_widget = QWidget()
-            row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(0,0,0,0)
-            row_layout.setSpacing(12)
-
+            # Hàng: [Label Bill][Spin Bill]  [Label Pay][Spin Pay]
             lbl_bill = QLabel(f"Số dư {month_label}:")
-            spn_bill = QDoubleSpinBox(); spn_bill.setMinimumWidth(160)
+            lbl_bill.setAlignment(Qt.AlignmentFlag.AlignRight)
+            spn_bill = QDoubleSpinBox(); spn_bill.setFixedWidth(160)
             spn_bill.setRange(-1000000 * self.EXCHANGE_RATE, 10000000 * self.EXCHANGE_RATE)
             spn_bill.setValue(0)
             spn_bill.setToolTip(f"Số dư sao kê {month_label.lower()}")
-            row_layout.addWidget(lbl_bill)
-            row_layout.addWidget(spn_bill)
             self.bill_amts.append(spn_bill)
 
             lbl_pay = QLabel(f"Thanh toán {month_label}:")
-            spn_pay = QDoubleSpinBox(); spn_pay.setMinimumWidth(160)
+            lbl_pay.setAlignment(Qt.AlignmentFlag.AlignRight)
+            spn_pay = QDoubleSpinBox(); spn_pay.setFixedWidth(160)
             spn_pay.setRange(0, 10000000 * self.EXCHANGE_RATE)
             spn_pay.setValue(0)
             spn_pay.setToolTip(f"Số tiền đã thanh toán {month_label.lower()}")
-            row_layout.addWidget(lbl_pay)
-            row_layout.addWidget(spn_pay)
             self.pay_amts.append(spn_pay)
-
-            row_layout.addStretch(1)
-            form_layout.addRow(row_widget)
+            row_index = i - 1
+            grid.addWidget(lbl_bill, row_index, 0)
+            grid.addWidget(spn_bill, row_index, 1)
+            grid.addWidget(lbl_pay, row_index, 2)
+            grid.addWidget(spn_pay, row_index, 3)
         
-        main_layout.addLayout(form_layout)
+        main_layout.addLayout(grid)
         group.setLayout(main_layout)
         return group
     
@@ -485,26 +483,32 @@ class PredictionTabWidget(QWidget):
     
     def create_result_group(self) -> QGroupBox:
         """Tạo GroupBox hiển thị kết quả dự báo"""
-        group = QGroupBox("📈 KẾT QUẢ DỰ BÁO")
+        group = QGroupBox("")
         group.setVisible(False)  # Ẩn ban đầu
         
         layout = QVBoxLayout()
+        layout.setContentsMargins(12,12,12,12)
+        
+        header = QLabel("KẾT QUẢ DỰ BÁO")
+        header.setObjectName('SectionHeader')
+        header.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(header)
         
         # Label hiển thị mức rủi ro (tier)
         self.lblRiskLabel = QLabel("Trung bình")
         self.lblRiskLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font_risk = QFont()
-        font_risk.setPointSize(20)
+        font_risk.setPointSize(24)
         font_risk.setBold(True)
         self.lblRiskLabel.setFont(font_risk)
-        self.lblRiskLabel.setStyleSheet("color: #DAA520; padding: 20px;")
+        self.lblRiskLabel.setStyleSheet("padding: 20px;")
         layout.addWidget(self.lblRiskLabel)
         
         # Label hiển thị xác suất
         self.lblProbability = QLabel("Xác suất vỡ nợ: 0.0%")
         self.lblProbability.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font_prob = QFont()
-        font_prob.setPointSize(16)
+        font_prob.setPointSize(18)
         self.lblProbability.setFont(font_prob)
         layout.addWidget(self.lblProbability)
         
@@ -639,14 +643,17 @@ class PredictionTabWidget(QWidget):
         
         tier_label = result.get_risk_tier()
         self.lblRiskLabel.setText(tier_label)
+        prob_text = f"Xác suất vỡ nợ: {result.get_probability_percentage()}"
+        self.lblProbability.setText(prob_text)
         if tier_label in ("Rất thấp", "Thấp"):
-            self.lblRiskLabel.setStyleSheet("color: red; padding: 20px; background-color: #ffe6e6; border-radius: 10px;")
+            self.lblRiskLabel.setStyleSheet("color: #27AE60; padding: 20px; background-color: #eaf6ed; border-radius: 10px;")
+            self.lblProbability.setStyleSheet("color: #27AE60; padding: 10px; background-color: #eaf6ed; border-radius: 10px;")
         elif tier_label == "Trung bình":
             self.lblRiskLabel.setStyleSheet("color: #DAA520; padding: 20px; background-color: #fff5cc; border-radius: 10px;")
+            self.lblProbability.setStyleSheet("color: #DAA520; padding: 10px; background-color: #fff5cc; border-radius: 10px;")
         else:
-            self.lblRiskLabel.setStyleSheet("color: green; padding: 20px; background-color: #e6ffe6; border-radius: 10px;")
-
-        self.lblProbability.setText(f"Xác suất vỡ nợ: {result.get_probability_percentage()}")
+            self.lblRiskLabel.setStyleSheet("color: #EB5757; padding: 20px; background-color: #fdecef; border-radius: 10px;")
+            self.lblProbability.setStyleSheet("color: #EB5757; padding: 10px; background-color: #fdecef; border-radius: 10px;")
     
     def save_prediction_to_db(self, input_dict, result):
         """Lưu prediction vào database"""
@@ -670,7 +677,8 @@ class PredictionTabWidget(QWidget):
                 model_name=result.model_name,
                 predicted_label=result.label,
                 probability=result.probability,
-                raw_input_dict=input_dict
+                raw_input_dict=input_dict,
+                user_id=getattr(self.user, 'id', None)
             )
             try:
                 self.prediction_logged.emit()

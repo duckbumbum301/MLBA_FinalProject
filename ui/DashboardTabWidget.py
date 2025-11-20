@@ -107,36 +107,8 @@ class DashboardTabWidget(QWidget):
         else:
             top_actions = QHBoxLayout(); top_actions.setContentsMargins(0,0,0,0); top_actions.addStretch(); top_actions.addWidget(self.btnRefresh)
             main_layout.addLayout(top_actions)
-        # Admin-only: Health/Drift card
-        if hasattr(self.user, 'is_admin') and self.user.is_admin():
-            health_card = QFrame(); health_card.setObjectName('ChartCard')
-            hv = QVBoxLayout(health_card); hv.setContentsMargins(12,12,12,12); hv.setSpacing(8)
-            ht = QLabel('Model health / drift check'); ht.setObjectName('ChartTitle'); hv.addWidget(ht)
-            def make_row():
-                row = QHBoxLayout(); row.setSpacing(8)
-                desc = QLabel('…'); desc.setObjectName('HealthDesc')
-                chip = QLabel(''); chip.setObjectName('ChipStable')
-                row.addWidget(desc)
-                row.addSpacing(10)
-                row.addWidget(chip)
-                row.addStretch()
-                return row, desc, chip
-            r1, d1, c1 = make_row(); hv.addLayout(r1)
-            r2, d2, c2 = make_row(); hv.addLayout(r2)
-            r3, d3, c3 = make_row(); hv.addLayout(r3)
-            r4, d4, c4 = make_row(); hv.addLayout(r4)
-            hv.addStretch(1)
-            self.health_labels = {
-                'data': {'desc': d1, 'chip': c1},
-                'pred': {'desc': d2, 'chip': c2},
-                'feat': {'desc': d3, 'chip': c3},
-                'acc': {'desc': d4, 'chip': c4},
-            }
-            try:
-                health_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            except Exception:
-                pass
-            self.health_card = health_card
+        # Admin dashboard không hiển thị thẻ "Model health" (đã có ở Báo Cáo)
+        self.health_card = None
         
         # Grid layout 2x2 cho 4 biểu đồ
         self.main_grid = QGridLayout(); self.main_grid.setHorizontalSpacing(16); self.main_grid.setVerticalSpacing(16)
@@ -196,8 +168,6 @@ class DashboardTabWidget(QWidget):
                 row_top.setAlignment(Qt.AlignmentFlag.AlignTop)
             except Exception:
                 pass
-            if hasattr(self, 'health_card') and self.health_card is not None:
-                row_top.addWidget(self.health_card, 2)
             row_top.addWidget(self.card_tl, 5)
             row_top.addWidget(self.card_tr, 3)
             main_layout.addLayout(row_top)
@@ -267,7 +237,6 @@ class DashboardTabWidget(QWidget):
                 except Exception:
                     pass
                 self._plot_admin_ml_dashboard()
-                self._update_health_card()
             else:
                 # User: dashboard vận hành
                 try:
@@ -369,6 +338,10 @@ class DashboardTabWidget(QWidget):
             ax.invert_yaxis()
             ax.grid(axis='x', alpha=0.3)
             try:
+                try:
+                    self.canvas_bottom_left.figure.set_layout_engine(None)
+                except Exception:
+                    pass
                 self.canvas_bottom_left.figure.subplots_adjust(bottom=0.28)
             except Exception:
                 pass
@@ -413,6 +386,10 @@ class DashboardTabWidget(QWidget):
                 ax.set_ylabel('Số lượng')
                 ax.grid(axis='y', alpha=0.3)
                 try:
+                    try:
+                        self.canvas_pay_status.figure.set_layout_engine(None)
+                    except Exception:
+                        pass
                     self.canvas_pay_status.figure.subplots_adjust(bottom=0.25)
                 except Exception:
                     pass

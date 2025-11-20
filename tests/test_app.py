@@ -13,9 +13,9 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 from PyQt6.QtWidgets import QApplication
-from ui.LoginPage import LoginPage
-from ui.MainWindow import MainWindow
-from ui.user_model import User as SimpleUser
+from UI.LoginPage import LoginPage
+from UI.MainWindow import MainWindow
+from UI.user_model import User as SimpleUser
 
 
 class CreditRiskApp:

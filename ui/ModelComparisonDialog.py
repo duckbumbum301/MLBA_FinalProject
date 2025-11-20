@@ -3,7 +3,7 @@ Dialog để so sánh dự đoán của nhiều models cho cùng 1 khách hàng
 """
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QLabel, QHeaderView
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont, QColor, QIcon
 from typing import Dict, Any
 import sys
 from pathlib import Path
@@ -72,6 +72,12 @@ class ModelComparisonDialog(QDialog):
         layout.addLayout(btn_layout)
         
         self.setLayout(layout)
+        try:
+            icon_path = Path(__file__).resolve().parent / 'images' / 'logo.png'
+            if icon_path.exists():
+                self.setWindowIcon(QIcon(str(icon_path)))
+        except Exception:
+            pass
     
     def run_comparison(self):
         """Chạy so sánh dự đoán từ các models"""

@@ -4,21 +4,16 @@ Chạy: python main.py hoặc py -3.12 main.py
 """
 import sys
 from pathlib import Path
-
-<<<<<<< Updated upstream
-=======
-from ui.LoginPage import LoginPage
-from ui.MainWindow import MainWindow
-
->>>>>>> Stashed changes
 # Add project root to path
 project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
 
 from PyQt6.QtWidgets import QApplication
-from ui.LoginPage import LoginPage
-from ui.MainWindow import MainWindow
-from ui.user_model import User as SimpleUser
+from PyQt6.QtGui import QIcon
+from UI.LoginPage import LoginPage
+from UI.SignupPage import SignupPage
+from UI.MainWindow import MainWindow
+from UI.user_model import User as SimpleUser
 
 
 class CreditRiskApp:
@@ -36,6 +31,10 @@ class CreditRiskApp:
         """Hiển thị màn hình đăng nhập"""
         self.login_window = LoginPage()
         self.login_window.login_success.connect(self.on_login_successful)
+        try:
+            self.login_window.open_signup.connect(self.show_signup)
+        except Exception:
+            pass
         self.login_window.show()
     
     def on_login_successful(self, user):
@@ -53,7 +52,35 @@ class CreditRiskApp:
     def show_main_window(self, user):
         """Hiển thị main window"""
         self.main_window = MainWindow(user)
+        try:
+            self.main_window.logout_signal.connect(self.on_logged_out)
+        except Exception:
+            pass
         self.main_window.show()
+
+    def show_signup(self):
+        """Mở màn hình đăng ký"""
+        try:
+            self.login_window.close()
+        except Exception:
+            pass
+        self.signup_window = SignupPage()
+        try:
+            self.signup_window.go_login.connect(self.show_login)
+            self.signup_window.signup_success.connect(self.show_login)
+        except Exception:
+            pass
+        self.signup_window.show()
+
+    def on_logged_out(self):
+        """Quay lại màn hình đăng nhập khi user đăng xuất"""
+        try:
+            if self.main_window:
+                self.main_window.close()
+        except Exception:
+            pass
+        self.main_window = None
+        self.show_login()
 
 
 def main():
@@ -67,6 +94,12 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Credit Risk Scoring System")
     app.setOrganizationName("BabyShark Banking")
+    try:
+        icon_path = project_root / 'UI' / 'images' / 'logo.png'
+        if icon_path.exists():
+            app.setWindowIcon(QIcon(str(icon_path)))
+    except Exception:
+        pass
     
     credit_app = CreditRiskApp()
     credit_app.start()

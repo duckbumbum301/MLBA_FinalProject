@@ -69,7 +69,7 @@ class UserReportTab(QWidget):
         filters.addWidget(self.cmb_time)
         filters.addWidget(QLabel('Trạng thái:'))
         filters.addWidget(self.cmb_status)
-        self.btn_export = QPushButton('Export Excel')
+        self.btn_export = QPushButton('Xuất Excel')
         self.btn_export.clicked.connect(self.export_to_excel)
         filters.addStretch()
         filters.addWidget(self.btn_export)

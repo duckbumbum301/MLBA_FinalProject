@@ -2,9 +2,9 @@
 LoginPage - Single entry login with database role validation
 Supports both User and Admin roles from database
 """
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QSpacerItem, QSizePolicy, QGraphicsDropShadowEffect
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QSpacerItem, QSizePolicy, QGraphicsDropShadowEffect, QMessageBox
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPixmap
+from PyQt6.QtGui import QColor, QPixmap, QIcon
 from pathlib import Path
 import sys
 base_dir = Path(__file__).resolve().parent
@@ -39,10 +39,10 @@ class LoginPage(QWidget):
         self.setObjectName('LoginPage')
         root = QVBoxLayout(); root.setContentsMargins(0,0,0,0)
         top = QFrame(); top.setObjectName('TopBar'); th = QHBoxLayout(top); th.setContentsMargins(16,8,16,8)
-        titleBar = QLabel('Credit Risk Management System')
+        titleBar = QLabel('Hệ Thống Quản Lý Rủi Ro Tín Dụng')
         th.addWidget(titleBar)
         th.addStretch()
-        right = QLabel('Not logged in'); right.setObjectName('HeaderStatus'); th.addWidget(right)
+        right = QLabel('Chưa đăng nhập'); right.setObjectName('HeaderStatus'); th.addWidget(right)
         root.addWidget(top)
         center = QVBoxLayout()
         wrapper = QWidget(); wrapper.setObjectName('Card'); wrapper.setMaximumWidth(520)
@@ -52,7 +52,7 @@ class LoginPage(QWidget):
         shadow.setColor(QColor(0,0,0,40))
         wrapper.setGraphicsEffect(shadow)
         card = QVBoxLayout(wrapper); card.setContentsMargins(20,20,20,20)
-        title = QLabel('Welcome to NYTDT - Credit Risk Management System!')
+        title = QLabel('Chào mừng đến NYTDT - Hệ Thống Quản Lý Rủi Ro Tín Dụng!')
         title.setObjectName('CardTitle')
         title.setWordWrap(True)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -85,6 +85,9 @@ class LoginPage(QWidget):
         self.btnLogin.clicked.connect(self.handle_login)
         self.txtPassword.returnPressed.connect(self.handle_login)
         actions.addWidget(self.btnLogin)
+        btnSignup = QPushButton('Đăng ký'); btnSignup.setObjectName('Secondary')
+        btnSignup.clicked.connect(self.open_signup.emit)
+        actions.addWidget(btnSignup)
         card.addLayout(form)
         card.addLayout(actions)
         center.addStretch()
@@ -97,8 +100,8 @@ class LoginPage(QWidget):
         """Xử lý đăng nhập với username/password thực tế"""
         username = self.txtUsername.text().strip()
         password = self.txtPassword.text()
-        
         if not username or not password:
+            QMessageBox.warning(self, "Lỗi", "Vui lòng nhập tên đăng nhập và mật khẩu!")
             return
         
         try:
@@ -112,6 +115,7 @@ class LoginPage(QWidget):
                 self.login_success.emit(SimpleUser(user.id, user.username, role))
             else:
                 print(f"✗ Đăng nhập thất bại: Sai tên đăng nhập hoặc mật khẩu")
+                QMessageBox.critical(self, "Đăng nhập thất bại", "Sai tên đăng nhập hoặc mật khẩu.\nBạn có thể bấm 'Đăng ký' để tạo tài khoản mới.")
             
             db.close()
         except Exception as e:
@@ -150,11 +154,17 @@ class LoginPage(QWidget):
         from PyQt6.QtWidgets import QDialog
         dlg = QDialog(self)
         dlg.setWindowTitle('Hỗ trợ đặt lại mật khẩu')
+        try:
+            icon_path = base_dir / 'images' / 'logo.png'
+            if icon_path.exists():
+                dlg.setWindowIcon(QIcon(str(icon_path)))
+        except Exception:
+            pass
         lay = QVBoxLayout(dlg); lay.setContentsMargins(16,16,16,16); lay.setSpacing(8)
         lay.addWidget(QLabel('Nhập thông tin để yêu cầu hỗ trợ đặt lại mật khẩu'))
         full_name = QLineEdit(); full_name.setPlaceholderText('Họ và Tên'); lay.addWidget(full_name)
         email = QLineEdit(); email.setPlaceholderText('Email'); lay.addWidget(email)
-        username = QLineEdit(); username.setPlaceholderText('User name (nếu nhớ)'); lay.addWidget(username)
+        username = QLineEdit(); username.setPlaceholderText('Tên người dùng (nếu nhớ)'); lay.addWidget(username)
         note = QLineEdit(); note.setPlaceholderText('Ghi chú (tuỳ chọn)'); lay.addWidget(note)
         btnSend = QPushButton('Gửi yêu cầu'); btnSend.setObjectName('Primary'); lay.addWidget(btnSend)
         btnSend.clicked.connect(lambda: (self._send_forgot_request(full_name.text(), email.text(), username.text(), note.text()) and dlg.accept()))
