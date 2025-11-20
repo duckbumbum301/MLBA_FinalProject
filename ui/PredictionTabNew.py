@@ -46,9 +46,9 @@ class PredictionTabWidget(QWidget):
             self.random_icon = QIcon()
         self._original_customer = None
         
-        # Init ML Service
+        # Init ML Service (ưu tiên LightGBM cho tất cả vai trò)
         try:
-            self.ml_service = MLService(model_name='XGBoost')
+            self.ml_service = MLService(model_name='LightGBM')
         except Exception as e:
             print(f"⚠ Không thể load ML model: {e}")
             self.ml_service = None
@@ -119,6 +119,10 @@ class PredictionTabWidget(QWidget):
         self.btnSaveCustomer.clicked.connect(self.save_customer)
         self.btnSaveCustomer.setToolTip("Lưu thông tin khách hàng vào database (Create/Update)")
         button_layout.addWidget(self.btnSaveCustomer)
+
+        self.chkForceCreate = QCheckBox("Tạo bản ghi mới")
+        self.chkForceCreate.setToolTip("Luôn tạo khách hàng mới, không cập nhật khách cũ")
+        button_layout.addWidget(self.chkForceCreate)
         
         self.btnDeleteCustomer = QPushButton("🗑️ Xóa Khách Hàng")
         self.btnDeleteCustomer.setObjectName('Danger')
@@ -747,13 +751,7 @@ class PredictionTabWidget(QWidget):
             self.spnAge.setEnabled(enabled)
 
     def enable_edit_mode(self):
-        reply = QMessageBox.question(
-            self, 'Xác nhận chỉnh sửa',
-            'Bạn có chắc chắn muốn chỉnh sửa các thông tin lịch sử thanh toán, chi tiết sao kê và thông tin cá nhân?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self.set_edit_mode(True)
+        self.set_edit_mode(True)
 
     def restore_original_data(self):
         if self._original_customer:
@@ -950,9 +948,7 @@ class PredictionTabWidget(QWidget):
                                         f"Không tìm thấy khách hàng với CMND: {cmnd}")
                 return
             
-            # Điền thông tin vào form
             self.load_customer_data(customer)
-            # Khóa chỉnh sửa sau khi tải dữ liệu từ MySQL
             self.set_edit_mode(False)
             self._original_customer = customer
             
@@ -1096,28 +1092,79 @@ class PredictionTabWidget(QWidget):
                 PAY_AMT12=input_dict['PAY_AMT12']
             )
             
-            # Kiểm tra CMND đã tồn tại chưa
+            # Kiểm tra CMND đã tồn tại và đang chỉnh trên khách hiện tại
             existing = self.query_service.get_customer_by_cmnd(cmnd)
+            is_editing_current = bool(self._original_customer and str(self._original_customer.customer_id_card or '').strip() == cmnd)
+            force_create = False
+            try:
+                force_create = self.chkForceCreate.isChecked()
+            except Exception:
+                force_create = False
             
-            if existing:
+            if (existing or is_editing_current) and not force_create:
                 # Update
-                reply = QMessageBox.question(
-                    self, 'Xác nhận',
-                    f'CMND {cmnd} đã tồn tại. Bạn có muốn cập nhật thông tin không?',
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                )
+                do_update = True
+                if not is_editing_current:
+                    reply = QMessageBox.question(
+                        self, 'Xác nhận',
+                        f'CMND {cmnd} đã tồn tại. Bạn có muốn cập nhật thông tin không?',
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    )
+                    do_update = (reply == QMessageBox.StandardButton.Yes)
                 
-                if reply == QMessageBox.StandardButton.Yes:
+                if do_update:
                     success = self.query_service.update_customer(cmnd, customer)
                     if success:
-                        QMessageBox.information(self, "Thành công", 
-                                                f"Đã cập nhật thông tin khách hàng: {name}")
+                        try:
+                            updated = self.query_service.get_customer_by_cmnd(cmnd)
+                            if updated:
+                                QMessageBox.information(self, "Thành công", 
+                                                        f"Đã cập nhật khách hàng: {name}\nLIMIT_BAL: {updated.LIMIT_BAL}")
+                            else:
+                                QMessageBox.information(self, "Thành công", 
+                                                        f"Đã cập nhật thông tin khách hàng: {name}")
+                        except Exception:
+                            QMessageBox.information(self, "Thành công", 
+                                                    f"Đã cập nhật thông tin khách hàng: {name}")
+                        try:
+                            if 'updated' in locals() and updated:
+                                self._original_customer = updated
+                            self.set_edit_mode(False)
+                            if hasattr(self, 'chkForceCreate'):
+                                self.chkForceCreate.setChecked(False)
+                        except Exception:
+                            pass
+                    else:
+                        QMessageBox.critical(self, "Lỗi", 
+                                             "Không thể cập nhật khách hàng vào credit_risk_db. Vui lòng thử lại hoặc kiểm tra kết nối DB.")
+                else:
+                    QMessageBox.information(self, "Bỏ qua", "Đã hủy cập nhật khách hàng.")
             else:
                 # Create
-                customer_id = self.query_service.save_customer(customer)
+                customer_id = self.query_service.save_customer(customer, strict_insert=force_create)
                 if customer_id:
-                    QMessageBox.information(self, "Thành công", 
-                                            f"Đã lưu khách hàng mới: {name} (ID: {customer_id})")
+                    try:
+                        updated = self.query_service.get_customer_by_cmnd(cmnd)
+                        if updated:
+                            QMessageBox.information(self, "Thành công", 
+                                                    f"Đã lưu khách hàng mới: {name} (ID: {customer_id})\nLIMIT_BAL: {updated.LIMIT_BAL}")
+                        else:
+                            QMessageBox.information(self, "Thành công", 
+                                                    f"Đã lưu khách hàng mới: {name} (ID: {customer_id})")
+                    except Exception:
+                        QMessageBox.information(self, "Thành công", 
+                                                f"Đã lưu khách hàng mới: {name} (ID: {customer_id})")
+                    try:
+                        if 'updated' in locals() and updated:
+                            self._original_customer = updated
+                        self.set_edit_mode(False)
+                        if hasattr(self, 'chkForceCreate'):
+                            self.chkForceCreate.setChecked(False)
+                    except Exception:
+                        pass
+                else:
+                    QMessageBox.critical(self, "Lỗi", 
+                                         "Không thể lưu khách hàng vào credit_risk_db. Vui lòng thử lại hoặc kiểm tra kết nối DB.")
         
         except Exception as e:
             QMessageBox.critical(self, "Lỗi", f"Lỗi khi lưu khách hàng: {str(e)}")

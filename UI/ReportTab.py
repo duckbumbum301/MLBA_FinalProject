@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QScrollArea, QFrame, QHeaderView, QDateEdit, QMessageBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QScrollArea, QFrame, QHeaderView, QDateEdit, QMessageBox, QFileDialog
 from PyQt6.QtCore import Qt
 from PyQt6.QtCore import Qt
 import sys
@@ -350,17 +350,54 @@ class ReportTab(QWidget):
             from pathlib import Path
             out_dir = Path(__file__).resolve().parents[1] / 'outputs' / 'reports'
             out_dir.mkdir(parents=True, exist_ok=True)
-            fp = out_dir / 'latest_day_predictions.csv'
+            default_fp = out_dir / 'latest_day_predictions.csv'
+            sel, _ = QFileDialog.getSaveFileName(self, 'Lưu CSV', str(default_fp), 'CSV Files (*.csv)')
+            if not sel:
+                return
+            p = Path(sel)
+            if p.suffix.lower() != '.csv':
+                p = p.with_suffix('.csv')
+            db = get_db_connector()
+            qs = get_query_service(db)
+            uid = self.user.id if self.view_mode == 'own_data_only' else None
+            start_iso = self.date_start.date().toString('yyyy-MM-dd') if hasattr(self, 'date_start') else None
+            end_iso = self.date_end.date().toString('yyyy-MM-dd') if hasattr(self, 'date_end') else None
+            sf = self.cmb_status.currentText() if hasattr(self, 'cmb_status') else 'Tất cả'
+            rows = qs.get_predictions_join_customers_range(start_iso, end_iso, sf, limit=1000, user_id=uid)
+            if not rows:
+                tr = self.cmb_time.currentText() if hasattr(self, 'cmb_time') else 'Hôm nay'
+                rows = qs.get_predictions_join_customers(time_range=tr, status_filter=sf, limit=1000, user_id=uid)
+            if not rows:
+                rows = qs.get_latest_day_predictions_join_customers(limit=1000)
             import csv
-            with open(fp, 'w', newline='', encoding='utf-8') as f:
+            with open(p, 'w', newline='', encoding='utf-8') as f:
                 w = csv.writer(f)
                 w.writerow(['Khách','CMND','Xác suất','Nhãn','Hạn mức','Tuổi','PAY_0','BILL_AMT1'])
-                for i in range(self.tbl_latest.rowCount()):
-                    row = [self.tbl_latest.item(i, c).text() if self.tbl_latest.item(i, c) else '' for c in range(8)]
-                    w.writerow(row)
-            QMessageBox.information(self, 'Xuất CSV', f'Đã lưu: {fp}')
-        except Exception:
-            pass
+                for r in rows:
+                    w.writerow([
+                        str(r.get('customer_name') or '-'),
+                        str(r.get('customer_id_card') or '-'),
+                        f"{float(r.get('probability') or 0.0):.2f}",
+                        'Cao' if int(r.get('label') or 0) == 1 else 'Thấp',
+                        str(r.get('LIMIT_BAL') or '-'),
+                        str(r.get('AGE') or '-'),
+                        str(r.get('PAY_0') or '-'),
+                        str(r.get('BILL_AMT1') or '-'),
+                    ])
+            try:
+                db.close()
+            except Exception:
+                pass
+            from PyQt6.QtGui import QDesktopServices
+            from PyQt6.QtCore import QUrl
+            btn = QMessageBox.question(self, 'Xuất CSV', f'Đã lưu {len(rows)} dòng: {p}\nMở thư mục chứa file?', QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes)
+            if btn == QMessageBox.StandardButton.Yes:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(p.parent)))
+        except Exception as e:
+            try:
+                QMessageBox.critical(self, 'Xuất CSV', f'Không thể lưu file:\n{e}')
+            except Exception:
+                pass
 
     def export_html(self):
         try:

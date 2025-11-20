@@ -29,7 +29,7 @@ class QueryService:
         except Exception:
             self._eval_path = None
     
-    def save_customer(self, customer: Customer) -> Optional[int]:
+    def save_customer(self, customer: Customer, strict_insert: bool = False) -> Optional[int]:
         """
         Lưu thông tin khách hàng vào database (41 fields)
         
@@ -77,12 +77,34 @@ class QueryService:
         success = self.db.execute_query(query, params)
         
         if success:
-            # Lấy ID vừa insert
             result = self.db.fetch_one("SELECT LAST_INSERT_ID()")
             if result:
                 customer_id = result[0]
                 print(f"✓ Đã lưu customer ID: {customer_id}")
                 return customer_id
+            # Không lấy được ID nhưng insert có thể vẫn thành công
+            try:
+                row = self.db.fetch_one("SELECT id FROM customers WHERE customer_id_card = %s ORDER BY id DESC LIMIT 1", (customer.customer_id_card,))
+                if row and row[0]:
+                    return int(row[0])
+            except Exception:
+                pass
+            return None
+        
+        if strict_insert:
+            print("✗ Insert thất bại và strict_insert đang bật - bỏ qua fallback update")
+            print("✗ Không thể lưu customer")
+            return None
+        # Fallback: nếu insert thất bại, thử update theo CMND
+        try:
+            ok = self.update_customer(customer.customer_id_card or '', customer)
+            if ok:
+                row = self.db.fetch_one("SELECT id FROM customers WHERE customer_id_card = %s ORDER BY id DESC LIMIT 1", (customer.customer_id_card,))
+                if row and row[0]:
+                    return int(row[0])
+                return 0
+        except Exception:
+            pass
         
         print("✗ Không thể lưu customer")
         return None

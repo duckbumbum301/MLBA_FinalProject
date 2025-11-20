@@ -69,8 +69,8 @@ class UserReportTab(QWidget):
         filters.addWidget(self.cmb_time)
         filters.addWidget(QLabel('Trạng thái:'))
         filters.addWidget(self.cmb_status)
-        self.btn_export = QPushButton('Xuất Excel')
-        self.btn_export.clicked.connect(self.export_to_excel)
+        self.btn_export = QPushButton('Xuất CSV')
+        self.btn_export.clicked.connect(self.export_to_csv)
         filters.addStretch()
         filters.addWidget(self.btn_export)
         layout.addLayout(filters)
@@ -213,3 +213,38 @@ class UserReportTab(QWidget):
                 "Lỗi Export",
                 f"Không thể export dữ liệu:\n{str(e)}"
             )
+
+    def export_to_csv(self):
+        try:
+            if self.table.rowCount() == 0:
+                QMessageBox.warning(self, "Không có dữ liệu", "Chưa có dữ liệu để export!")
+                return
+            from datetime import datetime
+            from pathlib import Path
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            default_filename = f"BaoCao_RuiRo_{timestamp}.csv"
+            file_path, _ = QFileDialog.getSaveFileName(self, "Lưu file CSV", default_filename, "CSV Files (*.csv);;All Files (*)")
+            if not file_path:
+                return
+            p = Path(file_path)
+            if p.suffix.lower() != '.csv':
+                p = p.with_suffix('.csv')
+            import csv
+            headers = [self.table.horizontalHeaderItem(col).text() for col in range(self.table.columnCount())]
+            with open(p, 'w', newline='', encoding='utf-8') as f:
+                w = csv.writer(f)
+                w.writerow(headers)
+                count = 0
+                for row in range(self.table.rowCount()):
+                    row_data = []
+                    for col in range(self.table.columnCount()):
+                        item = self.table.item(row, col)
+                        row_data.append(item.text() if item else '')
+                    w.writerow(row_data)
+                    count += 1
+            from PyQt6.QtGui import QDesktopServices
+            from PyQt6.QtCore import QUrl
+            QMessageBox.information(self, "Export thành công", f"Đã xuất {count} dòng dữ liệu ra file:\n{p}")
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(p.parent)))
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi Export", f"Không thể export dữ liệu:\n{str(e)}")

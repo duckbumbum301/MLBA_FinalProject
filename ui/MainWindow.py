@@ -101,6 +101,16 @@ class MainWindow(QMainWindow):
         if self.user.is_admin():
             self.sys_tab = SystemManagementTab()
             self.tab.addTab(self.sys_tab, 'Hệ Thống')
+        # Luôn set active LightGBM cho mọi vai trò
+        try:
+            from services.model_management_service import ModelManagementService
+        except Exception:
+            from ..services.model_management_service import ModelManagementService
+        try:
+            svc = ModelManagementService(db)
+            svc.set_active_model('LightGBM', getattr(self.user, 'username', 'system'))
+        except Exception:
+            pass
 
         # Wire navbar buttons to tabs when available
         if hasattr(self, 'btnNavPredict'):

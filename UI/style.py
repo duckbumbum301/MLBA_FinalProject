@@ -2,8 +2,8 @@ STYLE_QSS = """
 * { font-family: 'Inter','Segoe UI','Arial'; font-size: 16px; }
 QMainWindow { background: #f7f9fc; }
 QTabWidget::pane { border: 1px solid #dfe6ee; border-radius: 12px; background: white; }
-QTabBar::tab { background: #eef3f8; color: #2c3e50; padding: 10px 20px; margin: 2px; border-radius: 8px; }
-QTabBar::tab:selected { background: #2663ea; color: #ffffff; }
+QTabBar { height: 0px; }
+QTabBar::tab { height: 0px; width: 0px; margin: 0; padding: 0; border: none; }
 
 /* Button variants */
 QPushButton { background-color: #2663ea; color: #ffffff; padding: 12px 18px; border-radius: 12px; font-weight: 700; }

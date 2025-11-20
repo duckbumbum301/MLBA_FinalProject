@@ -24,6 +24,7 @@ class DatabaseConnector:
         self.config = config
         self.connection = None
         self.cursor = None
+        self.last_error = None
     
     def connect(self) -> bool:
         """
@@ -72,8 +73,17 @@ class DatabaseConnector:
             True nếu thành công, False nếu thất bại
         """
         if not self.connection or not self.cursor:
-            print("✗ Chưa có kết nối database")
-            return False
+            try:
+                self.connect()
+            except Exception:
+                print("✗ Chưa có kết nối database")
+                return False
+        try:
+            # Reconnect if connection dropped
+            if hasattr(self.connection, 'is_connected') and not self.connection.is_connected():
+                self.connect()
+        except Exception:
+            pass
         
         try:
             if params:
@@ -83,8 +93,12 @@ class DatabaseConnector:
             self.connection.commit()
             return True
         except Error as e:
+            self.last_error = str(e)
             print(f"✗ Lỗi execute query: {e}")
-            self.connection.rollback()
+            try:
+                self.connection.rollback()
+            except Exception:
+                pass
             return False
     
     def fetch_all(self, query: str, params: Optional[Tuple] = None) -> List[Tuple]:

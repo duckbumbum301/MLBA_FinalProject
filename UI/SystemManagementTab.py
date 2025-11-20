@@ -43,6 +43,10 @@ class SystemManagementTab(QWidget):
         lblTitleModel = QLabel('Thiết lập mô hình'); lblTitleModel.setObjectName('SectionTitle'); section0.addWidget(lblTitleModel)
         row0 = QHBoxLayout()
         self.cmbModel = QComboBox(); self.cmbModel.addItems(['XGBoost','LightGBM','LogisticRegression'])  # Only 3 trained models exist
+        try:
+            self.cmbModel.setCurrentText('LightGBM')
+        except Exception:
+            pass
         lblModel = QLabel('Model:'); lblModel.setStyleSheet('font-weight:600')
         row0.addWidget(lblModel)
         row0.addWidget(self.cmbModel)

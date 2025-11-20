@@ -19,5 +19,5 @@ def get_db_connector() -> DatabaseConnector:
 def get_query_service(db: DatabaseConnector) -> QueryService:
     return QueryService(db)
 
-def get_ml_service(model_name: str = 'XGBoost') -> MLService:
+def get_ml_service(model_name: str = 'LightGBM') -> MLService:
     return MLService(model_name=model_name)

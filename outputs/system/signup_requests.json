@@ -1,0 +1,72 @@
+[
+  {
+    "username": "ilovetranduythanh1",
+    "password": "10diem10diem",
+    "role": "User",
+    "ts": "2025-11-20T13:21:31.754113",
+    "status": "resolved"
+  },
+  {
+    "username": "ilovetranduythanh2",
+    "password": "10diem10diem",
+    "role": "Admin",
+    "ts": "2025-11-20T13:24:57.318691",
+    "status": "resolved"
+  },
+  {
+    "username": "ilovetdt123",
+    "password": "123",
+    "role": "User",
+    "ts": "2025-11-20T14:09:29.164883",
+    "status": "resolved"
+  },
+  {
+    "username": "meomeo1",
+    "password": "123",
+    "role": "User",
+    "ts": "2025-11-20T14:13:28.998064",
+    "status": "resolved"
+  },
+  {
+    "username": "meomeomeo",
+    "password": "123",
+    "role": "User",
+    "ts": "2025-11-20T14:14:47.167151",
+    "status": "resolved"
+  },
+  {
+    "username": "ilovetdt3",
+    "password": "1234",
+    "role": "User",
+    "ts": "2025-11-20T14:20:27.452557",
+    "status": "resolved"
+  },
+  {
+    "username": "ilovetdt1000",
+    "password": "1000",
+    "role": "User",
+    "ts": "2025-11-20T14:36:08.681243",
+    "status": "resolved"
+  },
+  {
+    "username": "ilovetdt5000",
+    "password": "123",
+    "role": "User",
+    "ts": "2025-11-20T18:19:22.519195",
+    "status": "resolved"
+  },
+  {
+    "username": "ilovetdt1000000",
+    "password": "123",
+    "role": "User",
+    "ts": "2025-11-20T18:21:40.870059",
+    "status": "resolved"
+  },
+  {
+    "username": "welovemrtdt",
+    "password": "123",
+    "role": "User",
+    "ts": "2025-11-20T18:26:03.829952",
+    "status": "resolved"
+  }
+]

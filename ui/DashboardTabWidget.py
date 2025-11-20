@@ -261,33 +261,98 @@ class DashboardTabWidget(QWidget):
             plot_feature_importance(ax, feature_importance, top_n=10)
             self.canvas_top_left.draw()
 
-            # Confusion Matrix
+            # Confusion Matrix: ưu tiên active model (mặc định LightGBM)
             ax = self.canvas_top_right.axes; ax.clear()
             confusion_matrices = self.eval_data.get('confusion_matrices', {})
-            cm = confusion_matrices.get('XGBoost')
-            if cm is not None:
-                plot_confusion_matrix(ax, cm, model_name='XGBoost')
-            else:
-                ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
+            active_name = 'LightGBM'
+            try:
+                if self.query_service and hasattr(self.query_service, 'db') and self.query_service.db:
+                    row = self.query_service.db.fetch_one("SELECT model_name FROM model_registry WHERE is_active = 1 LIMIT 1")
+                    if row and row[0]:
+                        active_name = str(row[0])
+            except Exception:
+                pass
+            cm = confusion_matrices.get(active_name)
+            if cm is None:
+                cm = confusion_matrices.get('LightGBM')
+            if cm is None:
+                cm = confusion_matrices.get('XGBoost')
+            try:
+                if cm is not None:
+                    plot_confusion_matrix(ax, cm, model_name=active_name)
+                else:
+                    ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
+            except Exception:
+                try:
+                    from ml.evaluation import load_demo_data
+                    demo = load_demo_data()
+                    dcm = demo.get('confusion_matrices', {}).get(active_name) or demo.get('confusion_matrices', {}).get('LightGBM')
+                    if dcm is not None:
+                        plot_confusion_matrix(ax, dcm, model_name=active_name)
+                    else:
+                        ax.text(0.5, 0.5, 'Không thể vẽ ma trận nhầm lẫn', ha='center', va='center', transform=ax.transAxes)
+                except Exception:
+                    ax.text(0.5, 0.5, 'Không thể vẽ ma trận nhầm lẫn', ha='center', va='center', transform=ax.transAxes)
             self.canvas_top_right.draw()
 
             # ROC Curves
             ax = self.canvas_bottom_left.axes; ax.clear()
             roc_data = self.eval_data.get('roc_data', {})
-            if roc_data:
-                plot_roc_curves(ax, roc_data)
-            else:
-                ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
+            def _roc_has_data(d):
+                try:
+                    return any((len(v[0]) if isinstance(v, (list, tuple)) else 0) >= 2 for v in d.values())
+                except Exception:
+                    return False
+            if not roc_data or not _roc_has_data(roc_data):
+                try:
+                    from ml.evaluation import load_demo_data
+                    demo = load_demo_data()
+                    roc_data = demo.get('roc_data', {})
+                except Exception:
+                    roc_data = {}
+            try:
+                if roc_data:
+                    plot_roc_curves(ax, roc_data)
+                else:
+                    ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
+            except Exception:
+                try:
+                    from ml.evaluation import load_demo_data
+                    demo = load_demo_data()
+                    plot_roc_curves(ax, demo.get('roc_data', {}))
+                except Exception:
+                    ax.text(0.5, 0.5, 'Không thể vẽ ROC', ha='center', va='center', transform=ax.transAxes)
             self.canvas_bottom_left.draw()
 
             # Risk Distribution
             ax = self.canvas_bottom_right.axes; ax.clear()
             y_test = self.eval_data.get('y_test')
             predictions = self.eval_data.get('predictions', {})
-            if y_test is not None and len(y_test) > 0 and predictions:
-                plot_risk_distribution(ax, y_test, predictions)
-            else:
-                ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
+            def _pred_has_data(p):
+                try:
+                    return sum(len(np.asarray(v)) for v in p.values()) > 0
+                except Exception:
+                    return False
+            if y_test is None or len(y_test) == 0 or not predictions or not _pred_has_data(predictions):
+                try:
+                    from ml.evaluation import load_demo_data
+                    demo = load_demo_data()
+                    y_test = demo.get('y_test')
+                    predictions = demo.get('predictions', {})
+                except Exception:
+                    pass
+            try:
+                if y_test is not None and len(y_test) > 0 and predictions:
+                    plot_risk_distribution(ax, y_test, predictions)
+                else:
+                    ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center', transform=ax.transAxes)
+            except Exception:
+                try:
+                    from ml.evaluation import load_demo_data
+                    demo = load_demo_data()
+                    plot_risk_distribution(ax, demo.get('y_test'), demo.get('predictions', {}))
+                except Exception:
+                    ax.text(0.5, 0.5, 'Không thể vẽ phân phối rủi ro', ha='center', va='center', transform=ax.transAxes)
             self.canvas_bottom_right.draw()
         except Exception as e:
             print(f"⚠ Lỗi vẽ admin dashboard: {e}")
@@ -432,11 +497,23 @@ class DashboardTabWidget(QWidget):
             ax.clear()
             
             confusion_matrices = self.eval_data.get('confusion_matrices', {})
-            # Lấy confusion matrix của XGBoost (model chính)
-            cm = confusion_matrices.get('XGBoost')
+            # Ưu tiên active model (mặc định LightGBM)
+            active_name = 'LightGBM'
+            try:
+                if self.query_service and hasattr(self.query_service, 'db') and self.query_service.db:
+                    row = self.query_service.db.fetch_one("SELECT model_name FROM model_registry WHERE is_active = 1 LIMIT 1")
+                    if row and row[0]:
+                        active_name = str(row[0])
+            except Exception:
+                pass
+            cm = confusion_matrices.get(active_name)
+            if cm is None:
+                cm = confusion_matrices.get('LightGBM')
+            if cm is None:
+                cm = confusion_matrices.get('XGBoost')
             
             if cm is not None:
-                plot_confusion_matrix(ax, cm, model_name='XGBoost')
+                plot_confusion_matrix(ax, cm, model_name=active_name)
             else:
                 ax.text(0.5, 0.5, 'Không có dữ liệu', 
                        ha='center', va='center', transform=ax.transAxes)
