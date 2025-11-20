@@ -93,7 +93,8 @@ class QueryService:
         model_name: str,
         predicted_label: int,
         probability: float,
-        raw_input_dict: Dict
+        raw_input_dict: Dict,
+        user_id: Optional[int] = None
     ) -> bool:
         """
         Lưu lịch sử dự báo vào database
@@ -104,6 +105,7 @@ class QueryService:
             predicted_label: Nhãn dự đoán (0/1)
             probability: Xác suất
             raw_input_dict: Dict chứa input đầy đủ
+            user_id: ID user thực hiện dự báo (nullable)
         
         Returns:
             True nếu thành công, False nếu thất bại
@@ -113,11 +115,11 @@ class QueryService:
         
         query = """
             INSERT INTO predictions_log (
-                customer_id, model_name, predicted_label, probability, raw_input_json
-            ) VALUES (%s, %s, %s, %s, %s)
+                customer_id, model_name, predicted_label, probability, raw_input_json, user_id
+            ) VALUES (%s, %s, %s, %s, %s, %s)
         """
         
-        params = (customer_id, model_name, predicted_label, probability, raw_input_json)
+        params = (customer_id, model_name, predicted_label, probability, raw_input_json, user_id)
         success = self.db.execute_query(query, params)
         
         if success:

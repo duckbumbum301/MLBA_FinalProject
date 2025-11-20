@@ -1,0 +1,30 @@
+[
+  {
+    "id": "u_1763599942240",
+    "sender": "👤 Bạn",
+    "text": "Giải thích dự báo vừa rồi",
+    "time": "07:52",
+    "type": "user"
+  },
+  {
+    "id": "t_1763599942245",
+    "sender": "🤖 AI",
+    "text": "Chào bạn! 👋\n\nRất tiếc, tôi không tìm thấy dữ liệu về \"dự báo vừa rồi\" trong thông tin bạn cung cấp.\n\n*   **`user_predictions`: []** (Danh sách dự báo của bạn đang trống)\n*   **`total_predictions`: 0** (Chưa có dự báo nào được thực hiện)\n\nĐể tôi có thể phân tích và giải thích, bạn vui lòng cung cấp dữ liệu khách hàng hoặc kết quả dự báo từ mô hình Machine Learning nhé! Tôi sẵn sàng hỗ trợ ngay khi có thông tin. 😊",
+    "time": "07:52",
+    "type": "ai"
+  },
+  {
+    "id": "u_1763599955872",
+    "sender": "👤 Bạn",
+    "text": "Yếu tố ảnh hưởng",
+    "time": "07:52",
+    "type": "user"
+  },
+  {
+    "id": "t_1763599955875",
+    "sender": "🤖 AI",
+    "text": "Chào bạn! 👋\n\nBạn đang hỏi về \"các yếu tố ảnh hưởng\", nhưng hiện tại, tôi vẫn chưa có dữ liệu cụ thể nào về khách hàng hoặc kết quả dự báo để phân tích.\n\n*   **`user_predictions`: []** (Danh sách dự báo của bạn đang trống)\n*   **`total_predictions`: 0** (Chưa có dự báo nào được thực hiện)\n\nĐể tôi có thể xác định và giải thích các yếu tố *cụ thể* ảnh hưởng đến rủi ro tín dụng của một trường hợp nào đó, tôi cần dữ liệu đầu vào. Ví dụ, thông tin về:\n\n*   **Thông tin cá nhân:** Tuổi, giới tính, tình trạng hôn nhân, số người phụ thuộc.\n*   **Tình hình tài chính:** Thu nhập, chi tiêu, tài sản, nợ hiện có, lịch sử tín dụng (CIC), tỷ lệ nợ/thu nhập (DTI).\n*   **Thông tin việc làm:** Ngành nghề, thâm niên công tác, loại hình công việc (ổn định/thời vụ).\n*   **Lịch sử giao dịch:** Số lần vay, trả nợ đúng hạn, nợ xấu.\n\n**Khi có dữ liệu, tôi có thể:**\n\n*   **Xác định các yếu tố chính:** Liệt kê những đặc điểm của khách hàng mà mô hình ML đã nhận định là có tác động mạnh nhất đến khả năng trả nợ.\n*   **Giải thích tác động:** Ví dụ, thu nhập cao thường giảm rủi ro, nhưng nếu nợ cũng cao tương ứng thì rủi ro vẫn có thể tăng.\n*   **Đề xuất cải thiện:** Dựa trên các yếu tố đó, đưa ra lời khuyên để giảm thiểu rủi ro.\n\nBạn vui lòng cung cấp dữ liệu nhé! Tôi sẵn lòng phân tích chi tiết ngay khi có thông tin. 😊",
+    "time": "07:52",
+    "type": "ai"
+  }
+]
