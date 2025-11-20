@@ -136,7 +136,7 @@ This project is developed by **Group 3** for the final project.
 | :-- | :--------------------- | :--------- | :--------------------------- | :----- |
 | 1   | Nguyen Chi Duc         | K234111429 | ducnc234112e@st.uel.edu.vn   | Leader |
 | 2   | Nguyen Hoang Khanh Nhu       | K234111412 | nhunhk234111e@st.uel.edu.vn   | Member |
-| 3   | Huynh Ngoc Nhu Y  | K234111462 | yhnn@st.uel.edu.vn   | Member |
+| 3   | Huynh Ngoc Nhu Y  | K234111462 | yhnn234112e@st.uel.edu.vn   | Member |
 | 4   | Nguyen Thi Bao Tran | K234111455 | tranntb234112e@st.uel.edu.vn | Member |
 | 5   | Nguyen Quoc Thinh    | K234111452 | thinhnq234112e@st.uel.edu.vn   | Member |
 
