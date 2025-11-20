@@ -131,13 +131,15 @@ MLBA_FinalProject/
 
 ## Team Members
 
-| No  | Name                  | Student ID    | Role   |
-|-----|-----------------------|---------------|--------|
-| 1   | [Your Name 1]         | [ID1]         | Leader |
-| 2   | [Your Name 2]         | [ID2]         | Member |
-| 3   | [Your Name 3]         | [ID3]         | Member |
-| 4   | [Your Name 4]         | [ID4]         | Member |
-| 5   | [Your Name 5]         | [ID5]         | Member |
+This project is developed by **Group 3** for the final project.
+| No  | Name                   | Student ID | Email                        | Role   |
+| :-- | :--------------------- | :--------- | :--------------------------- | :----- |
+| 1   | Nguyen Chi Duc         | K234111429 | ducnc234112e@st.uel.edu.vn   | Leader |
+| 2   | Nguyen Hoang Khanh Nhu       | K234111412 | nhunhk234111e@st.uel.edu.vn   | Member |
+| 3   | Huynh Ngoc Nhu Y  | K234111462 | yhnn234112e@st.uel.edu.vn   | Member |
+| 4   | Nguyen Thi Bao Tran | K234111455 | tranntb234112e@st.uel.edu.vn | Member |
+| 5   | Nguyen Quoc Thinh    | K234111452 | thinhnq234112e@st.uel.edu.vn   | Member |
+
 
 ## Contributing
 
