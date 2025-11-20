@@ -42,7 +42,7 @@ class SystemManagementTab(QWidget):
         section0 = QVBoxLayout()
         lblTitleModel = QLabel('Thiết lập mô hình'); lblTitleModel.setObjectName('SectionTitle'); section0.addWidget(lblTitleModel)
         row0 = QHBoxLayout()
-        self.cmbModel = QComboBox(); self.cmbModel.addItems(['XGBoost','LightGBM','LogisticRegression'])
+        self.cmbModel = QComboBox(); self.cmbModel.addItems(['XGBoost','LightGBM','LogisticRegression'])  # Only 3 trained models exist
         lblModel = QLabel('Model:'); lblModel.setStyleSheet('font-weight:600')
         row0.addWidget(lblModel)
         row0.addWidget(self.cmbModel)
@@ -108,6 +108,10 @@ class SystemManagementTab(QWidget):
         except Exception:
             pass
         sectionModels.addWidget(self.tblModels)
+        # Add compare models button
+        btnCompareModels = QPushButton('So sánh 8 mô hình'); btnCompareModels.setObjectName('Secondary')
+        btnCompareModels.clicked.connect(self.show_model_comparison)
+        sectionModels.addWidget(btnCompareModels)
         layout.addLayout(sectionModels)
 
         # Threshold Audit table
@@ -518,6 +522,37 @@ class SystemManagementTab(QWidget):
             )
         except Exception:
             pass
+    
+    def show_model_comparison(self):
+        """Hiển thị dialog so sánh 8 models với dữ liệu mẫu"""
+        print("🟢 SystemManagementTab.show_model_comparison() CALLED!")
+        try:
+            from .ModelComparisonDialog import ModelComparisonDialog
+            print("🟢 Successfully imported ModelComparisonDialog from relative import")
+        except Exception as e:
+            print(f"🔴 Relative import failed: {e}, trying absolute import")
+            from ModelComparisonDialog import ModelComparisonDialog
+            print("🟢 Successfully imported ModelComparisonDialog from absolute import")
+        
+        # Test data mẫu
+        test_data = {
+            'LIMIT_BAL': 300000,
+            'SEX': 1,
+            'EDUCATION': 2,
+            'MARRIAGE': 1,
+            'AGE': 45,
+            'PAY_0': 1, 'PAY_2': 1, 'PAY_3': 0, 'PAY_4': 0, 'PAY_5': 0, 'PAY_6': 1,
+            'PAY_7': 0, 'PAY_8': 0, 'PAY_9': 0, 'PAY_10': 0, 'PAY_11': 0, 'PAY_12': 0,
+            'BILL_AMT1': 10000, 'BILL_AMT2': 10000, 'BILL_AMT3': 10000, 'BILL_AMT4': 10000,
+            'BILL_AMT5': 10000, 'BILL_AMT6': 10000, 'BILL_AMT7': 10000, 'BILL_AMT8': 10000,
+            'BILL_AMT9': 10000, 'BILL_AMT10': 10000, 'BILL_AMT11': 10000, 'BILL_AMT12': 10000,
+            'PAY_AMT1': 5000, 'PAY_AMT2': 5000, 'PAY_AMT3': 5000, 'PAY_AMT4': 5000,
+            'PAY_AMT5': 5000, 'PAY_AMT6': 5000, 'PAY_AMT7': 5000, 'PAY_AMT8': 5000,
+            'PAY_AMT9': 5000, 'PAY_AMT10': 5000, 'PAY_AMT11': 5000, 'PAY_AMT12': 5000
+        }
+        
+        dialog = ModelComparisonDialog(test_data, self)
+        dialog.exec()
 
     def _show_msg(self, text: str, title: str = 'Thông báo', kind: str = 'info'):
         box = QMessageBox(self)

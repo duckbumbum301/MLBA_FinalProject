@@ -501,8 +501,10 @@ class ReportTab(QWidget):
             except Exception:
                 pass
         try:
-            models = ['XGBoost','LightGBM','CatBoost','RandomForest','Logistic','NeuralNet','Voting','Stacking']
-            name_map = {'Logistic':'LogisticRegression','NeuralNet':'Neural Network'}
+            models = ['XGBoost','LightGBM','LogisticRegression','CatBoost','RandomForest','NeuralNet','Voting','Stacking']
+            name_map = {'NeuralNet':'Neural Network'}
+            # Models that exist vs demo models
+            trained_models = {'XGBoost', 'LightGBM', 'LogisticRegression'}
             eval_thr = {}
             try:
                 import numpy as np
@@ -567,8 +569,10 @@ class ReportTab(QWidget):
                 if is_active != '✓':
                     status_parts.append('Không hoạt động')
                 status_text = ', '.join(status_parts) if status_parts else 'Ổn định'
+                # Add DEMO label for fake models
+                model_display = m if mn in trained_models else f"{m} (DEMO)"
                 rows.append([
-                    m,
+                    model_display,
                     is_active,
                     f"{thr_v:.2f}" if isinstance(thr_v, float) else '—',
                     f"{auc_v:.3f}" if isinstance(auc_v, float) else '—',

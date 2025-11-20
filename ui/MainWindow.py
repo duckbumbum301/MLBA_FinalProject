@@ -11,7 +11,7 @@ base_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(base_dir))
 try:
     from .user_model import User
-    from .PredictionTabWidget import PredictionTabWidget
+    from .PredictionTabNew import PredictionTabWidget
     from .DashboardTabWidget import DashboardTabWidget
     from .ReportTab import ReportTab
     from .UserReportTab import UserReportTab
@@ -19,7 +19,7 @@ try:
     from .SystemManagementTab import SystemManagementTab
 except Exception:
     from user_model import User
-    from PredictionTabWidget import PredictionTabWidget
+    from PredictionTabNew import PredictionTabWidget
     from DashboardTabWidget import DashboardTabWidget
     from ReportTab import ReportTab
     from UserReportTab import UserReportTab

@@ -5,6 +5,12 @@ Chạy: python main.py hoặc py -3.12 main.py
 import sys
 from pathlib import Path
 
+<<<<<<< Updated upstream
+=======
+from ui.LoginPage import LoginPage
+from ui.MainWindow import MainWindow
+
+>>>>>>> Stashed changes
 # Add project root to path
 project_root = Path(__file__).resolve().parent
 sys.path.insert(0, str(project_root))
