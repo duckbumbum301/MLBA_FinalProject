@@ -1,386 +1,152 @@
-# 🦈 Credit Risk Scoring System - PyQt6
+# Credit Risk Scoring System
 
-## 📋 Giới Thiệu
+A comprehensive credit risk analysis and scoring platform built with Python 3.12 and PyQt6. This system enables financial institutions to assess customer default risk using advanced machine learning models, a user-friendly interface, and robust data management.
 
-Hệ thống **Credit Risk Scoring** là ứng dụng desktop PyQt6 dùng để dự báo rủi ro vỡ nợ của khách hàng ngân hàng. Ứng dụng tích hợp:
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Database Setup](#database-setup)
+- [Running the Application](#running-the-application)
+- [Usage Guide](#usage-guide)
+- [Team Members](#team-members)
+- [Contributing](#contributing)
+- [License](#license)
 
-- ✅ **Machine Learning Models**: XGBoost, LightGBM, Logistic Regression
-- ✅ **Giao diện PyQt6** thân thiện, dễ sử dụng
-- ✅ **Hệ thống phân quyền** (Admin, Technical, Secretary)
-- ✅ **Database MySQL** lưu trữ khách hàng và lịch sử dự báo
-- ✅ **Dashboard trực quan** với 4 biểu đồ đánh giá mô hình
+## Overview
 
-Dataset sử dụng: **UCI Credit Card Default** (mở rộng lên 41 features - 12 tháng lịch sử)
+The Credit Risk Scoring System is a full-stack application designed to automate and enhance the process of credit risk assessment. It provides:
+- A modern desktop interface for data entry, prediction, and reporting.
+- Machine learning models (XGBoost, LightGBM, Logistic Regression) for risk scoring.
+- Admin and user roles with tailored access and management features.
+- Data visualization and model comparison tools.
 
----
+## Features
 
-## 🚀 Cài Đặt & Chạy Ứng Dụng
+- Customer data management and search
+- Credit risk prediction using multiple ML models
+- Model comparison and performance metrics (ROC-AUC, PR-AUC, Accuracy, etc.)
+- Admin dashboard for model management and user administration
+- Multi-currency support (VND/NT$)
+- Audit logs and prediction history
+- AI Assistant (Gemini integration, optional)
 
-### Bước 1: Clone Repository
+## Technology Stack
 
-```bash
-git clone <repository_url>
-cd MLBA_FinalProject
-```
+- **Python 3.12** (recommended)
+- **PyQt6** for GUI
+- **scikit-learn**, **xgboost**, **lightgbm** for ML
+- **MySQL** for database
+- **pandas**, **numpy**, **matplotlib** for data processing and visualization
 
-### Bước 2: Tạo Virtual Environment
-
-```powershell
-# Tạo venv
-python -m venv venv
-
-# Activate venv (Windows PowerShell)
-.\venv\Scripts\Activate.ps1
-
-# Nếu gặp lỗi ExecutionPolicy, chạy:
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-### Bước 3: Cài Đặt Dependencies
-
-```powershell
-pip install -r requirements.txt
-```
-
-### Bước 4: Setup MySQL Database
-
-1. **Khởi động MySQL Server** (port mặc định 3306)
-
-2. **Tạo Database và Tables**:
-
-```powershell
-# Đăng nhập MySQL
-mysql -u root -p
-
-# Chạy setup script
-source database/credit_scoring/setup.sql
-```
-
-Hoặc chạy từng file SQL:
-
-```sql
-CREATE DATABASE IF NOT EXISTS credit_risk_db;
-USE credit_risk_db;
-
-source database/credit_scoring/user.sql;
-source database/credit_scoring/customers.sql;
-source database/credit_scoring/predictions_log.sql;
-```
-
-3. **Kiểm tra users demo**:
-
-```sql
-USE credit_risk_db;
-SELECT username, role FROM user;
-```
-
-Sẽ thấy 3 users:
-- `babyshark` (Admin) - password: `123`
-- `fathershark` (Technical) - password: `123`
-- `momshark` (Secretary) - password: `123`
-
-### Bước 5: Train ML Models
-
-⚠️ **BẮT BUỘC**: Train models trước khi chạy ứng dụng!
-
-```powershell
-python ml/train_models.py
-```
-
-Script sẽ:
-- Load và preprocess data từ `UCI_Credit_Card.csv`
-- Train 3 models: XGBoost, LightGBM, Logistic Regression
-- Lưu models vào `outputs/models/`
-- Lưu evaluation data vào `outputs/evaluation/`
-
-**Lưu ý**: Đảm bảo file `UCI_Credit_Card.csv` ở thư mục gốc project.
-
-### Bước 6: Chạy Ứng Dụng
-
-```powershell
-python -m tests.test_app
-```
-
----
-
-## 🖥️ Sử Dụng Ứng Dụng
-
-### 1. Đăng Nhập
-
-- Username: `babyshark` / `fathershark` / `momshark`
-- Password: `123`
-
-### 2. Tab "Dự Báo Rủi Ro"
-
-Nhập đầy đủ **41 trường** thông tin khách hàng:
-
-**Nhóm 1: Thông tin cá nhân**
-- Hạn mức thẻ (LIMIT_BAL)
-- Giới tính (SEX): 1=Nam, 2=Nữ
-- Trình độ học vấn (EDUCATION)
-- Tình trạng hôn nhân (MARRIAGE)
-- Tuổi (AGE)
-
-**Nhóm 2: Lịch sử thanh toán** (12 tháng)
-- PAY_0 ~ PAY_6: Trạng thái thanh toán
-  - `-2`: Không sử dụng
-  - `-1`, `0`: Trả đúng hạn
-  - `1~9`: Trễ 1~9+ tháng
-
-**Nhóm 3: Chi tiết sao kê** (12 tháng)
-- BILL_AMT1 ~ BILL_AMT6: Số dư sao kê
-- PAY_AMT1 ~ PAY_AMT6: Số tiền đã thanh toán
-
-**Kết quả hiển thị**:
-- ✅ **Nguy cơ cao** (màu đỏ) hoặc **Nguy cơ thấp** (màu xanh)
-- ✅ **Xác suất vỡ nợ** (%)
-
-**Tùy chọn**:
-- ☑ Lưu vào lịch sử dự báo (database)
-
-### 3. Tab "Dashboard"
-
-Hiển thị 4 biểu đồ đánh giá mô hình:
-
-1. **Feature Importance**: Top 10 features quan trọng nhất
-   - PAY_0 (lịch sử thanh toán gần nhất) thường quan trọng nhất
-
-2. **Confusion Matrix**: Ma trận nhầm lẫn của XGBoost
-   - TP, TN, FP, FN
-
-3. **ROC Curves**: So sánh 3 models
-   - XGBoost, LightGBM, Logistic Regression
-   - Hiển thị AUC score
-
-4. **Risk Distribution**: Phân phối rủi ro theo bins xác suất
-
-**Phân quyền Dashboard**:
-- ✅ Admin: Xem được
-- ✅ Technical: Xem được
-- ❌ Secretary: Không xem được
-
----
-
-## 📁 Cấu Trúc Dự Án
+## Project Structure
 
 ```
 MLBA_FinalProject/
-│
-├── config/                      # Cấu hình database
-│   ├── __init__.py
-│   └── database_config.py
-│
-├── database/                    # Database connector & SQL
-│   ├── __init__.py
-│   ├── connector.py
-│   └── credit_scoring/
-│       ├── user.sql
-│       ├── customers.sql
-│       ├── predictions_log.sql
-│       └── setup.sql
-│
-├── models/                      # Data models (Python classes)
-│   ├── __init__.py
-│   ├── user.py
-│   ├── customer.py
-│   └── prediction_result.py
-│
-├── services/                    # Business logic layer
-│   ├── __init__.py
-│   ├── auth_service.py          # Authentication & password hashing
-│   ├── query_service.py         # Database queries
-│   └── ml_service.py            # ML model interface
-│
-├── ml/                          # Machine Learning utilities
-│   ├── __init__.py
-│   ├── preprocess.py            # Data preprocessing
-│   ├── predictor.py             # Model loading & prediction
-│   ├── evaluation.py            # Evaluation & plotting
-│   └── train_models.py          # Training script ⚠️
-│
-├── ui/                          # PyQt6 UI
-│   ├── __init__.py
-│   ├── LoginWindow.ui           # Qt Designer file
-│   ├── LoginWindow.py           # Generated Python
-│   ├── LoginWindowEx.py         # Logic implementation
-│   ├── MainWindow.ui
-│   ├── MainWindow.py
-│   ├── MainWindowEx.py          # Main window logic
-│   ├── PredictionTabWidget.py   # Prediction tab
-│   └── DashboardTabWidget.py    # Dashboard tab
-│
-├── tests/
-│   ├── __init__.py
-│   └── test_app.py              # Entry point ⚠️
-│
-├── outputs/
-│   ├── models/                  # Trained models (.pkl)
-│   ├── charts/                  # Saved charts
-│   └── evaluation/              # Evaluation data (.npz)
-│
-├── docs/                        # Documentation
-│
-├── UCI_Credit_Card.csv          # Dataset ⚠️
-├── requirements.txt
-├── .gitignore
-└── README.md
+├── main.py                  # Main entry point
+├── ui/                      # UI components (PyQt6)
+├── services/                # Business logic and database services
+├── ml/                      # Machine learning scripts and models
+├── models/                  # Data models
+├── outputs/                 # Model files, evaluation results, charts
+├── database/credit_risk_db/ # SQL schema files (import here!)
+├── config/                  # Configuration files
+├── requirements.txt         # Python dependencies
+└── README.md                # This file
 ```
 
----
+## Prerequisites
 
-## 🔑 Phân Quyền Người Dùng
+- **Python 3.12** (strongly recommended)
+- **MySQL** server (tested with MySQL 8+)
+- **pip** (Python package manager)
 
-| Role | Username | Password | Quyền Truy Cập |
-|------|----------|----------|----------------|
-| **Admin** | babyshark | 123 | ✅ Tất cả tabs |
-| **Technical** | fathershark | 123 | ✅ Dự báo + Dashboard |
-| **Secretary** | momshark | 123 | ✅ Chỉ Dự báo |
+## Installation
 
----
+1. **Clone the Repository**
+    ```bash
+    git clone https://github.com/yourusername/MLBA_FinalProject.git
+    cd MLBA_FinalProject
+    ```
+2. **Create and Activate a Virtual Environment (Recommended)**
+    ```bash
+    python -m venv venv
+    # On Windows:
+    venv\Scripts\activate
+    # On macOS/Linux:
+    source venv/bin/activate
+    ```
+3. **Install Dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-## 🧪 Testing
+## Database Setup
 
-### Test Database Connection
+1. **Start MySQL Server** and create a database (e.g., `credit_risk_db`).
+2. **Import Data Schema**
+    - Open your MySQL client (Workbench, DBeaver, or command line).
+    - Import all `.sql` files from the folder:
+      ```
+      database/credit_risk_db/
+      ```
+    - This will create all necessary tables: users, customers, predictions_log, model_registry, etc.
+3. **(Optional) Update database credentials**
+    - Edit `config/database_config.py` if your MySQL username/password is different.
 
-```python
-from config.database_config import DatabaseConfig
-from database.connector import DatabaseConnector
+## Running the Application
 
-config = DatabaseConfig.default()
-db = DatabaseConnector(config)
-success = db.connect()
-print("Connected!" if success else "Failed!")
-db.close()
-```
+1. **Train Machine Learning Models** (first time only)
+    ```bash
+    python ml/train_models.py
+    ```
+    This will generate model files and evaluation data in `outputs/models/` and `outputs/evaluation/`.
 
-### Test ML Prediction
+2. **Start the Application**
+    ```bash
+    python main.py
+    # or
+    py -3.12 main.py
+    ```
 
-```python
-from services.ml_service import MLService
+## Usage Guide
 
-ml_service = MLService(model_name='XGBoost')
+- On launch, the login screen will appear. Use the following demo accounts:
 
-input_data = {
-    'LIMIT_BAL': 50000, 'SEX': 1, 'EDUCATION': 2,
-    'MARRIAGE': 2, 'AGE': 30,
-    'PAY_0': 0, 'PAY_2': 0, 'PAY_3': 0, 
-    'PAY_4': 0, 'PAY_5': 0, 'PAY_6': 0,
-    'BILL_AMT1': 10000, 'BILL_AMT2': 9000, 'BILL_AMT3': 8000,
-    'BILL_AMT4': 7000, 'BILL_AMT5': 6000, 'BILL_AMT6': 5000,
-    'PAY_AMT1': 2000, 'PAY_AMT2': 2000, 'PAY_AMT3': 2000,
-    'PAY_AMT4': 2000, 'PAY_AMT5': 2000, 'PAY_AMT6': 2000
-}
+    **Admin:**
+    - Username: `ilovetranduythanh2`
+    - Password: `10diem10diem`
 
-result = ml_service.predict_default_risk(input_data)
-print(result)
-```
+    **User:**
+    - Username: `ilovetranduythanh1`
+    - Password: `10diem10diem`
 
----
+- **Admin** can manage users, train models, view all predictions, and access system settings.
+- **User** can input customer data, make predictions, and view their own prediction history.
+- Use the "Model Management" tab (Admin) to train or activate new models.
+- All data is stored in the MySQL database.
 
-## 🐛 Troubleshooting
+## Team Members
 
-### Lỗi: "Import mysql.connector could not be resolved"
+| No  | Name                  | Student ID    | Role   |
+|-----|-----------------------|---------------|--------|
+| 1   | [Your Name 1]         | [ID1]         | Leader |
+| 2   | [Your Name 2]         | [ID2]         | Member |
+| 3   | [Your Name 3]         | [ID3]         | Member |
+| 4   | [Your Name 4]         | [ID4]         | Member |
+| 5   | [Your Name 5]         | [ID5]         | Member |
 
-```powershell
-pip install mysql-connector-python
-```
+## Contributing
 
-### Lỗi: "Can't connect to MySQL server"
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/YourFeature`).
+3. Commit your changes (`git commit -m 'Add YourFeature'`).
+4. Push to your branch (`git push origin feature/YourFeature`).
+5. Open a Pull Request.
 
-- Kiểm tra MySQL đã chạy chưa
-- Kiểm tra username/password trong `config/database_config.py`
-- Kiểm tra port (mặc định 3306)
+## License
 
-### Lỗi: "Model file not found"
-
-- Chạy training script:
-  ```powershell
-  python ml/train_models.py
-  ```
-
-### Lỗi: "UCI_Credit_Card.csv not found"
-
-- Đảm bảo file CSV ở thư mục gốc project
-- Hoặc update đường dẫn trong `ml/train_models.py`
-
-### Lỗi PyQt6 import
-
-```powershell
-pip install PyQt6
-```
-
----
-
-## 📊 Dataset Information
-
-**UCI Credit Card Default Dataset**
-
-- **Records**: 30,000 khách hàng
-- **Features**: 41 trường (12 tháng lịch sử)
-- **Target**: `default.payment.next.month` (1=vỡ nợ, 0=không vỡ nợ)
-- **Imbalance**: ~22% positive class
-
-**Key Features**:
-- `PAY_0`: Trạng thái thanh toán tháng gần nhất (feature quan trọng nhất)
-- `LIMIT_BAL`: Hạn mức thẻ
-- `BILL_AMT1~12`: Số dư sao kê 12 tháng
-- `PAY_AMT1~12`: Số tiền thanh toán 12 tháng
-
----
-
-## 👨‍💻 Development
-
-### Regenerate UI files từ .ui
-
-Nếu chỉnh sửa `.ui` trong Qt Designer:
-
-```powershell
-pyuic6 ui/LoginWindow.ui -o ui/LoginWindow.py
-pyuic6 ui/MainWindow.ui -o ui/MainWindow.py
-```
-
-### Add new user
-
-```python
-from services.auth_service import AuthService
-from database.connector import DatabaseConnector
-from config.database_config import DatabaseConfig
-
-config = DatabaseConfig.default()
-db = DatabaseConnector(config)
-db.connect()
-
-auth = AuthService(db)
-auth.create_user('newuser', 'password123', 'Technical')
-
-db.close()
-```
-
----
-
-## 📝 License
-
-This project is for educational purposes.
-
----
-
-## 🦈 Credits
-
-- **Developer**: BabyShark Team
-- **Dataset**: UCI Machine Learning Repository
-- **Framework**: PyQt6, scikit-learn, LightGBM, XGBoost
-
----
-
-## 🎯 TODO / Future Improvements
-
-- [ ] Add more models (CatBoost, Neural Networks)
-- [ ] Implement model comparison tool
-- [ ] Add export report to PDF
-- [ ] Batch prediction from CSV file
-- [ ] Real-time model monitoring
-- [ ] User management UI (create/edit/delete users)
-
----
-
-**Happy Credit Scoring! 🦈💳**
+This project is for educational purposes only. All rights reserved by the development team.
